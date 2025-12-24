@@ -1,4 +1,4 @@
-packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior")
+packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior", "flextable")
 lapply(packages, library, character.only = TRUE)
 
 
@@ -58,6 +58,40 @@ dat <-  list(
   atp = at[(ngd+1):ng]
 )
 
+#--- Compile and Sample the model ---#
+m1 <- cmdstan_model("code/normal_model.stan")
+m1fit <- m1$sample(
+  data = dat, chains = 8, parallel_chains = 8, refresh = 500
+)
 
-m1 <- cmdstan_model()
+#--- Working with posterior draws ---#
+
+m1post = m1fit$draws(variables = c("s1p", "s2p"), format = "df")
+
+# Score matrix function for a game
+
+score_matrix <- function(post, game){
+  n_sample <- length(post[[game]])
+  home_p <- tabulate(post[[game]])/n_sample # Posterior proportions of scores
+  away_p <- tabulate(post[[game + 10]])/n_sample
+  
+  # Matrix of results.
+  m = round(home_p %o% away_p, 4)
+  return (m)
+}
+
+# Win/Loss/Draw Percentages.
+
+result_prob <- function(post, game) {
+  m = score_matrix(post, game)
+  hw = sum(m[lower.tri(m)])
+  d = sum(diag(m))
+  aw = sum(m[upper.tri(m)])
+  
+  return(c(hw = hw, d = d, aw = aw))
+}
+
+pred <- data %>% tail(n = 10) %>% cbind(
+sapply(1:10, function(x) result_prob(m1post, x)) %>% data.frame() %>% t() )
+  
 
