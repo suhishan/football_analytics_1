@@ -46,4 +46,9 @@ sapply(1:10, function(x) result_prob(m1post, x)) %>% data.frame() %>% t() )
   
 
 
+# Drawing the attack and defence plot with posterior means
+
+apply(m2post, 2, function(x) quantile(x, probs = 0.975))
+
+
 
