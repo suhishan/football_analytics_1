@@ -1,10 +1,10 @@
-packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior", "flextable")
+packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior")
 lapply(packages, library, character.only = TRUE)
 
 
 #--- Load the data and make it usable ---#
 
-data = read.csv("data/premfull23_24.csv")
+data <-  read.csv("data/premfull23_24.csv")
 
 data = data %>% select(HomeTeam, HomeGoals, AwayGoals, AwayTeam) %>% 
   rename(
@@ -171,6 +171,8 @@ d_m2 %>% ggplot(aes(x = att2, y = def2))+
        subtitle = "Hierarchical Model")+
   coord_cartesian(xlim = c(-0.8, 0.8), y = c(-0.8, 0.8))+
   theme_classic()
+
+
 
 
 

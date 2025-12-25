@@ -1,0 +1,140 @@
+---
+title: "Premier League Match Predictions using Bayesian Hierarchical Models"
+author: "Suhishan Bhandari"
+date: "December 25, 2025"
+
+toc: TRUE
+---
+
+```{r,include=FALSE, message=FALSE}
+packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior")
+lapply(packages, library, character.only = TRUE)
+
+```
+
+# Introduction
+
+The blog aims to estimate every Premier League team's attack and defence strengths using their match scores from $37$ gameweeks (2023/24 season). Using these strength estimates, I then predict the results of the 38th gameweek.
+
+# Model
+
+$$
+\begin{align}
+s1 \sim poisson(\theta_1) \\
+s2 \sim poisson(\theta_2) \\
+\theta_1 = exp(home + att[ht]-def[at])\\
+\theta_2 = exp(att[at] - def[ht])
+\end{align}
+$$
+
+$s1$ and $s2$ are home and away scores respectively for a given match, which are assumed to be Poisson processes with their respective $\theta$. Scores are dependent on whether the team plays at home, and the attack and defence strengths of home team ($ht$) and away team($at$).
+
+## Data
+
+```{r, include=FALSE}
+#--- Load the data and make it usable ---#
+
+data <-  read.csv("data/premfull23_24.csv")
+
+data = data %>% select(HomeTeam, HomeGoals, AwayGoals, AwayTeam) %>% 
+  rename(
+    Home = HomeTeam,
+    s1 = HomeGoals,
+    s2 = AwayGoals,
+    Away = AwayTeam
+  )
+
+# Recode team names.
+lookup <- c(
+     "Brighton and Hove Albion" = "Brighton",
+     "Manchester Utd" = "Manchester United",
+     "Newcastle Utd" = "Newcastle United",
+     "Nott'ham Forest" = "Nottingham Forest",
+     "Sheffield Utd" = "Sheffield United",
+     "Tottenham Hotspur" = "Tottenham",
+     "West Ham United" = "West Ham",
+     "Wolverhampton Wanderers" = "Wolves"
+)
+
+data = data %>% mutate(
+  Home = recode(Home, !!!lookup),
+  Away = recode(Away, !!!lookup)
+)
+
+```
+
+```{r}
+head(data)
+```
+
+## Model 1
+
+The first model we will use for our inference is a complete pooling model where every team gets its own attack and defence parameters.
+
+``` stan
+{stan}
+#| eval: false
+data {
+  int<lower=0> nt; // number of teams (20)
+  int<lower=0> ng; // number of games (370)
+  int<lower=0> np; // number of games to predict (final 10 games)
+  array[ng] int<lower=1> ht; //home team index
+  array[ng] int<lower=1> at; // away team index
+  array[ng] int<lower=0> s1; // home team score
+  array[ng] int<lower=0> s2; // away team score
+  
+  array[np] int<lower=0> htp; // home team index for prediction
+  array[np] int<lower=0> atp; //away team index for prediction
+}
+
+parameters{
+  real home;
+  vector[nt] att;
+  vector[nt] def;
+}
+
+transformed parameters{
+  vector[ng] theta1; // poisson lambda for home team
+  vector[ng] theta2; //  poisson lambda for away team
+  
+  theta1 = exp(home + att[ht] - def[at]);
+  theta2 = exp(att[at] - def[ht]);
+}
+
+model{
+  //priors
+  att ~ normal(0, 1);
+  def ~ normal(0, 1);
+  home ~ normal(0, 1);
+  
+  // likelihood
+  s1 ~ poisson(theta1);
+  s2 ~ poisson(theta2);
+}
+
+generated quantities {
+  vector[np] theta1p; // home team predicted score
+  vector[np] theta2p; // away team predicted score.
+  
+  vector[ng] log_lik; // a vector of log-likelihood per observation
+  
+  array[np] int s1p; // score prediction for home using theta1p.
+  array[np] int s2p; // score prediction for away using theta2p.
+  
+  theta1p = exp(home + att[htp] - def[atp]);
+  theta2p = exp(att[atp] - def[htp]);
+  
+  s1p = poisson_rng(theta1p);
+  s2p = poisson_rng(theta2p);
+  
+  
+  // TODO generate a log-likelihood for WAIC loo-PSIS.
+  
+  for (i in 1:ng) {
+    log_lik[i] = poisson_lpmf(s1[i] | theta1[i]) + poisson_lpmf(s2[i] | theta2[i]);
+  }
+}
+```
+
+
+
