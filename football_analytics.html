@@ -117,6 +117,8 @@ window.Quarto = {
   <ul class="collapse">
   <li><a href="#data" id="toc-data" class="nav-link" data-scroll-target="#data">Data</a></li>
   <li><a href="#model-1" id="toc-model-1" class="nav-link" data-scroll-target="#model-1">Model 1</a></li>
+  <li><a href="#model-1-estimates" id="toc-model-1-estimates" class="nav-link" data-scroll-target="#model-1-estimates">Model 1 Estimates</a></li>
+  <li><a href="#model-2-hierarchical-model" id="toc-model-2-hierarchical-model" class="nav-link" data-scroll-target="#model-2-hierarchical-model">Model 2: Hierarchical Model</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -171,72 +173,515 @@ s2 \sim poisson(\theta_2) \\
 <p><span class="math inline">\(s1\)</span> and <span class="math inline">\(s2\)</span> are home and away scores respectively for a given match, which are assumed to be Poisson processes with their respective <span class="math inline">\(\theta\)</span>. Scores are dependent on whether the team plays at home, and the attack and defence strengths of home team (<span class="math inline">\(ht\)</span>) and away team(<span class="math inline">\(at\)</span>).</p>
 <section id="data" class="level2">
 <h2 class="anchored" data-anchor-id="data">Data</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>              Home s1 s2              Away
+1          Burnley  0  3   Manchester City
+2          Arsenal  2  1 Nottingham Forest
+3 Sheffield United  0  1    Crystal Palace
+4 Newcastle United  5  1       Aston Villa
+5         Brighton  4  1        Luton Town
+6          Everton  0  1            Fulham</code></pre>
+</div>
+</div>
 </section>
 <section id="model-1" class="level2">
 <h2 class="anchored" data-anchor-id="model-1">Model 1</h2>
-<p>The first model we will use for our inference is a complete pooling model where every team gets its own attack and defence parameters.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>{stan}</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> {</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; nt; <span class="co">// number of teams (20)</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; ng; <span class="co">// number of games (370)</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; np; <span class="co">// number of games to predict (final 10 games)</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; ht; <span class="co">//home team index</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; at; <span class="co">// away team index</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; s1; <span class="co">// home team score</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; s2; <span class="co">// away team score</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; htp; <span class="co">// home team index for prediction</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; atp; <span class="co">//away team index for prediction</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">parameters</span>{</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> home;</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[nt] att;</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[nt] def;</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="kw">transformed parameters</span>{</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[ng] theta1; <span class="co">// poisson lambda for home team</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[ng] theta2; <span class="co">//  poisson lambda for away team</span></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  theta1 = exp(home + att[ht] - def[at]);</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  theta2 = exp(att[at] - def[ht]);</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="kw">model</span>{</span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="co">//priors</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  att ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  def ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  home ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">// likelihood</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  s1 ~ poisson(theta1);</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  s2 ~ poisson(theta2);</span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="kw">generated quantities</span> {</span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[np] theta1p; <span class="co">// home team predicted score</span></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[np] theta2p; <span class="co">// away team predicted score.</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[ng] log_lik; <span class="co">// a vector of log-likelihood per observation</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span> s1p; <span class="co">// score prediction for home using theta1p.</span></span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span> s2p; <span class="co">// score prediction for away using theta2p.</span></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>  theta1p = exp(home + att[htp] - def[atp]);</span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>  theta2p = exp(att[atp] - def[htp]);</span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>  s1p = poisson_rng(theta1p);</span>
-<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>  s2p = poisson_rng(theta2p);</span>
-<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>  <span class="co">// </span><span class="al">TODO</span><span class="co"> generate a log-likelihood for WAIC loo-PSIS.</span></span>
-<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span>:ng) {</span>
-<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>    log_lik[i] = poisson_lpmf(s1[i] | theta1[i]) + poisson_lpmf(s2[i] | theta2[i]);</span>
-<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>The first model we will use for our inference is a complete pooling model where every team gets its own attack and defence parameters (different intercept for each) but none of these parameters are related to each other in any way. The stan code for the statistical model is shown below:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>{stan}</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; nt; <span class="co">// number of teams (20)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; ng; <span class="co">// number of games (370)</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; np; <span class="co">// number of games to predict (final 10 games)</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; ht; <span class="co">//home team index</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; at; <span class="co">// away team index</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; s1; <span class="co">// home team score</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; s2; <span class="co">// away team score</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; htp; <span class="co">// home team index for prediction</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; atp; <span class="co">//away team index for prediction</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="kw">parameters</span>{</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> home;</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[nt] att;</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[nt] def;</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="kw">transformed parameters</span>{</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[ng] theta1; <span class="co">// poisson lambda for home team</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[ng] theta2; <span class="co">//  poisson lambda for away team</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>  theta1 = exp(home + att[ht] - def[at]);</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>  theta2 = exp(att[at] - def[ht]);</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="kw">model</span>{</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>  <span class="co">//priors</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>  att ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>  def ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>  home ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">// likelihood</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>  s1 ~ poisson(theta1);</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>  s2 ~ poisson(theta2);</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a><span class="kw">generated quantities</span> {</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[np] theta1p; <span class="co">// home team predicted score</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[np] theta2p; <span class="co">// away team predicted score.</span></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[ng] log_lik; <span class="co">// a vector of log-likelihood per observation</span></span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span> s1p; <span class="co">// score prediction for home using theta1p.</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span> s2p; <span class="co">// score prediction for away using theta2p.</span></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>  theta1p = exp(home + att[htp] - def[atp]);</span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>  theta2p = exp(att[atp] - def[htp]);</span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  s1p = poisson_rng(theta1p);</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>  s2p = poisson_rng(theta2p);</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>  <span class="co">// </span><span class="al">TODO</span><span class="co"> generate a log-likelihood for WAIC loo-PSIS.</span></span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span>:ng) {</span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>    log_lik[i] = poisson_lpmf(s1[i] | theta1[i]) + poisson_lpmf(s2[i] | theta2[i]);</span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="model-1-estimates" class="level2">
+<h2 class="anchored" data-anchor-id="model-1-estimates">Model 1 Estimates</h2>
+<p>Extracting draws from the posterior:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>m1 <span class="ot">&lt;-</span> <span class="fu">cmdstan_model</span>(<span class="st">"code/normal_model.stan"</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>m1fit <span class="ot">&lt;-</span> m1<span class="sc">$</span><span class="fu">sample</span>(</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> dat, <span class="at">chains =</span> <span class="dv">8</span>, <span class="at">parallel_chains =</span> <span class="dv">8</span>, <span class="at">refresh =</span> <span class="dv">500</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Running MCMC with 8 parallel chains...
+
+Chain 1 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 2 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 2 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 3 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 3 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 4 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 4 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 5 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 5 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 6 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 6 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 7 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 7 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 8 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 8 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 1 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 1 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 1 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 2 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 2 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 3 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 3 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 4 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 4 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 5 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 5 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 6 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 6 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 7 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 7 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 8 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 8 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 2 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 3 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 1 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 4 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 5 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 6 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 7 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 8 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 2 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 3 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 2 finished in 0.9 seconds.
+Chain 3 finished in 0.9 seconds.
+Chain 1 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 4 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 5 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 6 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 7 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 8 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 1 finished in 1.0 seconds.
+Chain 4 finished in 1.0 seconds.
+Chain 5 finished in 1.0 seconds.
+Chain 6 finished in 0.9 seconds.
+Chain 7 finished in 0.9 seconds.
+Chain 8 finished in 1.0 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 1.0 seconds.
+Total execution time: 1.1 seconds.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">#--- Working with posterior draws ---#</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>m1post <span class="ot">=</span> m1fit<span class="sc">$</span><span class="fu">draws</span>(<span class="at">variables =</span> <span class="fu">c</span>(<span class="st">"s1p"</span>, <span class="st">"s2p"</span>), <span class="at">format =</span> <span class="st">"df"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Plot:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Model 1 attack and defence parameters posterior.</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>m1ad <span class="ot">&lt;-</span> m1fit<span class="sc">$</span><span class="fu">draws</span>(<span class="at">variables =</span> <span class="fu">c</span>(<span class="st">"att"</span>, <span class="st">"def"</span>), <span class="at">format =</span> <span class="st">"df"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>()</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>d_m1 <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">att1 =</span> <span class="fu">apply</span>(m1ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, mean),</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">att1_lc =</span> <span class="fu">apply</span>(m1ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.03</span>)),</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">att1_uc =</span> <span class="fu">apply</span>(m1ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.97</span>)),</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">def1 =</span> <span class="fu">apply</span>(m1ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, mean),</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">def1_lc =</span> <span class="fu">apply</span>(m1ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.03</span>)),</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">def1_uc =</span> <span class="fu">apply</span>(m1ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.97</span>)),</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">teams =</span> teams</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>d_m1 <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> att1, <span class="at">y =</span> def1))<span class="sc">+</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">shape =</span> <span class="dv">1</span>, <span class="at">size =</span> <span class="dv">3</span>)<span class="sc">+</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">xmin =</span> att1_lc, <span class="at">xmax =</span> att1_uc), <span class="at">alpha =</span> <span class="fl">0.1</span>)<span class="sc">+</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">ymin =</span> def1_lc, <span class="at">ymax =</span> def1_uc), <span class="at">alpha =</span> <span class="fl">0.1</span>)<span class="sc">+</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="at">data =</span> d_m1[<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>,<span class="dv">3</span>, <span class="dv">10</span>, <span class="dv">13</span>, <span class="dv">16</span>, <span class="dv">20</span>),], <span class="fu">aes</span>(<span class="at">label =</span> teams),</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>            <span class="at">hjust =</span> <span class="sc">-</span><span class="fl">0.15</span>, <span class="at">vjust =</span> <span class="fl">0.15</span>)<span class="sc">+</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Attack Strength"</span>, <span class="at">y =</span> <span class="st">"Defence Strength"</span>,</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">"PL 2023/24 Teams Att and Def Strengths"</span>,</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Complete Pooling Model (94% credible intervals)"</span>)<span class="sc">+</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.8</span>, <span class="fl">0.8</span>), <span class="at">y =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.8</span>, <span class="fl">0.8</span>))<span class="sc">+</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="football_analytics_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>These attack and defence estimates produce gameweek 38 predictions as follows:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Score matrix function for a game</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>score_matrix <span class="ot">&lt;-</span> <span class="cf">function</span>(post, game){</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  n_sample <span class="ot">&lt;-</span> <span class="fu">length</span>(post[[game]])</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  home_p <span class="ot">&lt;-</span> <span class="fu">table</span>(post[[game]])<span class="sc">/</span>n_sample <span class="co"># Posterior proportions of scores</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  away_p <span class="ot">&lt;-</span> <span class="fu">table</span>(post[[game <span class="sc">+</span> <span class="dv">10</span>]])<span class="sc">/</span>n_sample</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Matrix of results.</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  m <span class="ot">=</span> <span class="fu">round</span>(home_p <span class="sc">%o%</span> away_p, <span class="dv">4</span>)</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span> (m)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Win/Loss/Draw Percentages.</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>result_prob <span class="ot">&lt;-</span> <span class="cf">function</span>(post, game) {</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>  m <span class="ot">=</span> <span class="fu">score_matrix</span>(post, game)</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  hw <span class="ot">=</span> <span class="fu">sum</span>(m[<span class="fu">lower.tri</span>(m)])</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>  d <span class="ot">=</span> <span class="fu">sum</span>(<span class="fu">diag</span>(m))</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>  aw <span class="ot">=</span> <span class="fu">sum</span>(m[<span class="fu">upper.tri</span>(m)])</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">c</span>(<span class="at">hw =</span> hw, <span class="at">d =</span> d, <span class="at">aw =</span> aw))</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>pred <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="cf">function</span>(x) <span class="fu">result_prob</span>(m1post, x)) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>() <span class="sc">%&gt;%</span> <span class="fu">t</span>() </span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n=</span><span class="dv">10</span>), pred)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                Home s1 s2              Away     hw      d     aw
+371          Arsenal  2  1           Everton 0.7482 0.1792 0.0727
+372 Sheffield United  0  3         Tottenham 0.1237 0.1484 0.7280
+373        Brentford  2  4  Newcastle United 0.3280 0.2130 0.4585
+374          Burnley  1  2 Nottingham Forest 0.3491 0.2532 0.3973
+375          Chelsea  2  1       Bournemouth 0.6085 0.1863 0.2047
+376        Liverpool  2  0            Wolves 0.7440 0.1543 0.1016
+377       Luton Town  2  4            Fulham 0.3434 0.2357 0.4208
+378  Manchester City  3  1          West Ham 0.8310 0.1059 0.0624
+379         Brighton  0  2 Manchester United 0.4344 0.2461 0.3192
+380   Crystal Palace  5  0       Aston Villa 0.3339 0.2272 0.4388</code></pre>
+</div>
+</div>
+</section>
+<section id="model-2-hierarchical-model" class="level2">
+<h2 class="anchored" data-anchor-id="model-2-hierarchical-model">Model 2: Hierarchical Model</h2>
+<div class="sourceCode" id="cb10"><pre class="sourceCode stan code-with-copy"><code class="sourceCode stan"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>{stan}</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#| eval: false</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> {</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; nt; <span class="co">// number of teams (20)</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; ng; <span class="co">// number of games (370)</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; np; <span class="co">// number of games to predict (final 10 games)</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; ht; <span class="co">//home team index</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">1</span>&gt; at; <span class="co">// away team index</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; s1; <span class="co">// home team score</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[ng] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; s2; <span class="co">// away team score</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; htp; <span class="co">// home team index for prediction</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; atp; <span class="co">//away team index for prediction</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="kw">parameters</span>{</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> home;</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[nt] att;</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[nt] def;</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> att_bar;</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span> def_bar;</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; att_tau;</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>  <span class="dt">real</span>&lt;<span class="kw">lower</span>=<span class="dv">0</span>&gt; def_tau;</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a><span class="kw">transformed parameters</span>{</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[ng] theta1; <span class="co">// poisson lambda for home team</span></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[ng] theta2; <span class="co">//  poisson lambda for away team</span></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>  theta1 = exp(home + att[ht] - def[at]);</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>  theta2 = exp(att[at] - def[ht]);</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a><span class="kw">model</span>{</span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">// high-level hyper priors.</span></span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>  att_bar ~ normal(<span class="dv">0</span>, <span class="fl">0.1</span>);</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>  att_tau ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a>  def_bar ~ normal(<span class="dv">0</span>, <span class="fl">0.1</span>);</span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>  def_tau ~ normal(<span class="dv">0</span>, <span class="dv">01</span>);</span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>  <span class="co">//low-level priors</span></span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>  att ~ normal(att_bar, att_tau);</span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>  def ~ normal(def_bar, def_tau);</span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>  home ~ normal(<span class="dv">0</span>, <span class="dv">1</span>);</span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a>  <span class="co">// likelihood</span></span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a>  s1 ~ poisson(theta1);</span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>  s2 ~ poisson(theta2);</span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a><span class="kw">generated quantities</span> {</span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[np] theta1p; <span class="co">// home team predicted score</span></span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[np] theta2p; <span class="co">// away team predicted score.</span></span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a>  <span class="dt">vector</span>[ng] log_lik; <span class="co">// a vector of log-likelihood per observation</span></span>
+<span id="cb10-57"><a href="#cb10-57" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-58"><a href="#cb10-58" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span> s1p; <span class="co">// score prediction for home using theta1p.</span></span>
+<span id="cb10-59"><a href="#cb10-59" aria-hidden="true" tabindex="-1"></a>  <span class="dt">array</span>[np] <span class="dt">int</span> s2p; <span class="co">// score prediction for away using theta2p.</span></span>
+<span id="cb10-60"><a href="#cb10-60" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-61"><a href="#cb10-61" aria-hidden="true" tabindex="-1"></a>  theta1p = exp(home + att[htp] - def[atp]);</span>
+<span id="cb10-62"><a href="#cb10-62" aria-hidden="true" tabindex="-1"></a>  theta2p = exp(att[atp] - def[htp]);</span>
+<span id="cb10-63"><a href="#cb10-63" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-64"><a href="#cb10-64" aria-hidden="true" tabindex="-1"></a>  s1p = poisson_rng(theta1p);</span>
+<span id="cb10-65"><a href="#cb10-65" aria-hidden="true" tabindex="-1"></a>  s2p = poisson_rng(theta2p);</span>
+<span id="cb10-66"><a href="#cb10-66" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-67"><a href="#cb10-67" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-68"><a href="#cb10-68" aria-hidden="true" tabindex="-1"></a>  <span class="co">// </span><span class="al">TODO</span><span class="co"> generate a log-likelihood for WAIC loo-PSIS.</span></span>
+<span id="cb10-69"><a href="#cb10-69" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-70"><a href="#cb10-70" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span>:ng) {</span>
+<span id="cb10-71"><a href="#cb10-71" aria-hidden="true" tabindex="-1"></a>    log_lik[i] = poisson_lpmf(s1[i] | theta1[i]) + poisson_lpmf(s2[i] | theta2[i]);</span>
+<span id="cb10-72"><a href="#cb10-72" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb10-73"><a href="#cb10-73" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-74"><a href="#cb10-74" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>m2 <span class="ot">&lt;-</span> <span class="fu">cmdstan_model</span>(<span class="st">"code/multilevel_model.stan"</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>m2fit <span class="ot">&lt;-</span> m2<span class="sc">$</span><span class="fu">sample</span>(<span class="at">data =</span> dat, <span class="at">chains =</span> <span class="dv">8</span>, <span class="at">parallel_chains =</span> <span class="dv">8</span>,</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">refresh =</span> <span class="dv">500</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Running MCMC with 8 parallel chains...
+
+Chain 1 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 2 Iteration:    1 / 2000 [  0%]  (Warmup) </code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 2 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 2 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/tmp/Rtmp9VSeMA/model-3594e93a452861.stan', line 42, column 2 to column 33)</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 2 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 2 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 2 </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Chain 3 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 4 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 5 Iteration:    1 / 2000 [  0%]  (Warmup) 
+Chain 6 Iteration:    1 / 2000 [  0%]  (Warmup) </code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 6 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 6 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/tmp/Rtmp9VSeMA/model-3594e93a452861.stan', line 41, column 2 to column 33)</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 6 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 6 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 6 </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Chain 7 Iteration:    1 / 2000 [  0%]  (Warmup) </code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 7 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 7 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/tmp/Rtmp9VSeMA/model-3594e93a452861.stan', line 41, column 2 to column 33)</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 7 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 7 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 7 </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Chain 8 Iteration:    1 / 2000 [  0%]  (Warmup) </code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 8 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 8 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/tmp/Rtmp9VSeMA/model-3594e93a452861.stan', line 41, column 2 to column 33)</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 8 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 8 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Chain 8 </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Chain 1 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 1 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 1 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 2 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 3 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 4 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 5 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 6 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 7 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 8 Iteration:  500 / 2000 [ 25%]  (Warmup) 
+Chain 2 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 2 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 3 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 3 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 4 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 4 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 5 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 5 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 6 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 6 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 7 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 7 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 8 Iteration: 1000 / 2000 [ 50%]  (Warmup) 
+Chain 8 Iteration: 1001 / 2000 [ 50%]  (Sampling) 
+Chain 1 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 2 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 3 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 4 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 6 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 5 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 8 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 7 Iteration: 1500 / 2000 [ 75%]  (Sampling) 
+Chain 1 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 4 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 6 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 1 finished in 1.0 seconds.
+Chain 4 finished in 1.0 seconds.
+Chain 6 finished in 1.0 seconds.
+Chain 2 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 3 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 5 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 2 finished in 1.1 seconds.
+Chain 3 finished in 1.1 seconds.
+Chain 5 finished in 1.2 seconds.
+Chain 7 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 8 Iteration: 2000 / 2000 [100%]  (Sampling) 
+Chain 7 finished in 1.2 seconds.
+Chain 8 finished in 1.1 seconds.
+
+All 8 chains finished successfully.
+Mean chain execution time: 1.1 seconds.
+Total execution time: 1.3 seconds.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>m2post <span class="ot">&lt;-</span> m2fit<span class="sc">$</span><span class="fu">draws</span>(<span class="at">variables =</span> <span class="fu">c</span>(<span class="st">"s1p"</span>, <span class="st">"s2p"</span>), <span class="at">format =</span> <span class="st">"df"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Plot the attack and defence strengths:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>m2ad <span class="ot">&lt;-</span> m2fit<span class="sc">$</span><span class="fu">draws</span>(<span class="at">variables =</span> <span class="fu">c</span>(<span class="st">"att"</span>, <span class="st">"def"</span>, <span class="st">"att_bar"</span>, <span class="st">"def_bar"</span>),  <span class="at">format =</span> <span class="st">"df"</span>) <span class="sc">%&gt;%</span> <span class="fu">data.frame</span>()</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>d_m2 <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">att2 =</span> <span class="fu">apply</span>(m2ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, mean),</span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">att2_lc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.03</span>)),</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">att2_uc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.97</span>)),</span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">def2 =</span> <span class="fu">apply</span>(m2ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, mean),</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">def2_lc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.03</span>)),</span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">def2_uc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.97</span>)),</span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">teams =</span> teams</span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a>d_m2 <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> att2, <span class="at">y =</span> def2))<span class="sc">+</span></span>
+<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">shape =</span> <span class="dv">1</span>, <span class="at">size =</span> <span class="dv">3</span>)<span class="sc">+</span></span>
+<span id="cb38-15"><a href="#cb38-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">xmin =</span> att2_lc, <span class="at">xmax =</span> att2_uc), <span class="at">alpha =</span> <span class="fl">0.2</span>)<span class="sc">+</span></span>
+<span id="cb38-16"><a href="#cb38-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">ymin =</span> def2_lc, <span class="at">ymax =</span> def2_uc), <span class="at">alpha =</span> <span class="fl">0.2</span>)<span class="sc">+</span></span>
+<span id="cb38-17"><a href="#cb38-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(m2ad<span class="sc">$</span>att_bar),</span>
+<span id="cb38-18"><a href="#cb38-18" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
+<span id="cb38-19"><a href="#cb38-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fu">mean</span>(m2ad<span class="sc">$</span>def_bar), <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
+<span id="cb38-20"><a href="#cb38-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="at">data =</span> d_m2[<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>,<span class="dv">3</span>, <span class="dv">10</span>, <span class="dv">13</span>, <span class="dv">16</span>, <span class="dv">20</span>),], <span class="fu">aes</span>(<span class="at">label =</span> teams),</span>
+<span id="cb38-21"><a href="#cb38-21" aria-hidden="true" tabindex="-1"></a>            <span class="at">hjust =</span> <span class="sc">-</span><span class="fl">0.15</span>, <span class="at">vjust =</span> <span class="fl">0.15</span>)<span class="sc">+</span></span>
+<span id="cb38-22"><a href="#cb38-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="sc">-</span><span class="fl">0.75</span>, <span class="sc">-</span><span class="fl">0.05</span>, <span class="at">label =</span> <span class="fu">expression</span>(mu[def]))<span class="sc">+</span></span>
+<span id="cb38-23"><a href="#cb38-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="fl">0.15</span>, <span class="fl">0.75</span>, <span class="at">label =</span> <span class="fu">expression</span>(mu[att]))<span class="sc">+</span></span>
+<span id="cb38-24"><a href="#cb38-24" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb38-25"><a href="#cb38-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Attack Strength"</span>, <span class="at">y =</span> <span class="st">"Defence Strength"</span>,</span>
+<span id="cb38-26"><a href="#cb38-26" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">"PL 2023/24 Teams Att and Def Strengths"</span>,</span>
+<span id="cb38-27"><a href="#cb38-27" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Hierarchical Model"</span>)<span class="sc">+</span></span>
+<span id="cb38-28"><a href="#cb38-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.8</span>, <span class="fl">0.8</span>), <span class="at">y =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.8</span>, <span class="fl">0.8</span>))<span class="sc">+</span></span>
+<span id="cb38-29"><a href="#cb38-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="football_analytics_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Predictions:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>pred2 <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="cf">function</span>(x) <span class="fu">result_prob</span>(m2post, x)) <span class="sc">%&gt;%</span> </span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>() <span class="sc">%&gt;%</span> <span class="fu">t</span>()</span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n =</span> <span class="dv">10</span>), pred2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                Home s1 s2              Away     hw      d     aw
+371          Arsenal  2  1           Everton 0.7077 0.1898 0.1021
+372 Sheffield United  0  3         Tottenham 0.1736 0.1758 0.6503
+373        Brentford  2  4  Newcastle United 0.3427 0.2194 0.4372
+374          Burnley  1  2 Nottingham Forest 0.3656 0.2508 0.3833
+375          Chelsea  2  1       Bournemouth 0.5871 0.1949 0.2175
+376        Liverpool  2  0            Wolves 0.6962 0.1730 0.1304
+377       Luton Town  2  4            Fulham 0.3652 0.2344 0.4002
+378  Manchester City  3  1          West Ham 0.7761 0.1318 0.0922
+379         Brighton  0  2 Manchester United 0.4472 0.2420 0.3105
+380   Crystal Palace  5  0       Aston Villa 0.3519 0.2323 0.4155</code></pre>
+</div>
+</div>
 </section>
 </section>
 

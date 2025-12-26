@@ -60,6 +60,7 @@ dat <-  list(
 
 #--- Compile and Sample the model ---#
 m1 <- cmdstan_model("code/normal_model.stan")
+
 m1fit <- m1$sample(
   data = dat, chains = 8, parallel_chains = 8, refresh = 500
 )
@@ -72,8 +73,8 @@ m1post = m1fit$draws(variables = c("s1p", "s2p"), format = "df")
 
 score_matrix <- function(post, game){
   n_sample <- length(post[[game]])
-  home_p <- tabulate(post[[game]])/n_sample # Posterior proportions of scores
-  away_p <- tabulate(post[[game + 10]])/n_sample
+  home_p <- table(post[[game]])/n_sample # Posterior proportions of scores
+  away_p <- table(post[[game + 10]])/n_sample
   
   # Matrix of results.
   m = round(home_p %o% away_p, 4)
@@ -94,7 +95,6 @@ result_prob <- function(post, game) {
 pred <- sapply(1:10, function(x) result_prob(m1post, x)) %>% 
   data.frame() %>% t() 
   
-
 
 #--- Compile the hierarchical Model --- #
 m2 <- cmdstan_model("code/multilevel_model.stan")

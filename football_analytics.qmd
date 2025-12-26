@@ -2,7 +2,6 @@
 title: "Premier League Match Predictions using Bayesian Hierarchical Models"
 author: "Suhishan Bhandari"
 date: "December 25, 2025"
-
 toc: TRUE
 ---
 
@@ -65,11 +64,39 @@ data = data %>% mutate(
 
 ```{r}
 head(data)
+
+```
+
+```{r, include=FALSE}
+teams = unique(data$Home) # Team names
+ng = nrow(data) # number of games
+nt = length(unique(data$Home)) # number of teams
+ht = unlist(sapply(1:ng, function(g) which(teams == data$Home[g]))) # Home team index
+at = unlist(sapply(1:ng, function(g) which(teams == data$Away[g]))) # Away team index
+
+np = 10 # Number of games to be predicted i.e. test sample length
+ngd = ng - np # Number of games used to train i.e. train sample length.
+
+
+dat <-  list(
+  nt = nt,
+  ng = ngd,
+  ht = ht[1:ngd],
+  at = at[1:ngd],
+  s1 = data$s1[1:ngd],
+  s2 = data$s2[1:ngd],
+  
+  # for predictions
+  np = np,
+  htp = ht[(ngd+1):ng],
+  atp = at[(ngd+1):ng]
+)
+
 ```
 
 ## Model 1
 
-The first model we will use for our inference is a complete pooling model where every team gets its own attack and defence parameters.
+The first model we will use for our inference is a complete pooling model where every team gets its own attack and defence parameters (different intercept for each) but none of these parameters are related to each other in any way. The stan code for the statistical model is shown below:
 
 ``` stan
 {stan}
@@ -136,5 +163,219 @@ generated quantities {
 }
 ```
 
+## Model 1 Estimates
+
+Extracting draws from the posterior:
+
+```{r, message=FALSE, warning=FALSE}
+m1 <- cmdstan_model("code/normal_model.stan")
+
+m1fit <- m1$sample(
+  data = dat, chains = 8, parallel_chains = 8, refresh = 500
+)
+
+#--- Working with posterior draws ---#
+m1post = m1fit$draws(variables = c("s1p", "s2p"), format = "df")
+
+```
+
+Plot:
+
+```{r}
+# Model 1 attack and defence parameters posterior.
+m1ad <- m1fit$draws(variables = c("att", "def"), format = "df") %>%
+  data.frame()
+
+d_m1 <- tibble(
+  att1 = apply(m1ad[1:20], 2, mean),
+  att1_lc = apply(m1ad[1:20], 2, function(x) quantile(x, probs = 0.03)),
+  att1_uc = apply(m1ad[1:20], 2, function(x) quantile(x, probs = 0.97)),
+  def1 = apply(m1ad[21:40], 2, mean),
+  def1_lc = apply(m1ad[21:40], 2, function(x) quantile(x, probs = 0.03)),
+  def1_uc = apply(m1ad[21:40], 2, function(x) quantile(x, probs = 0.97)),
+  teams = teams
+)
+  
+d_m1 %>% ggplot(aes(x = att1, y = def1))+
+  geom_point(shape = 1, size = 3)+
+  geom_errorbar(aes(xmin = att1_lc, xmax = att1_uc), alpha = 0.1)+
+  geom_errorbar(aes(ymin = def1_lc, ymax = def1_uc), alpha = 0.1)+
+  geom_vline(xintercept = 0, linetype = 2, alpha = 0.5)+
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.5)+
+  geom_text(data = d_m1[c(1, 2,3, 10, 13, 16, 20),], aes(label = teams),
+            hjust = -0.15, vjust = 0.15)+
+  labs(x = "Attack Strength", y = "Defence Strength",
+       title = "PL 2023/24 Teams Att and Def Strengths",
+       subtitle = "Complete Pooling Model (94% credible intervals)")+
+    coord_cartesian(xlim = c(-0.8, 0.8), y = c(-0.8, 0.8))+
+  theme_classic()
 
 
+```
+
+These attack and defence estimates produce gameweek 38 predictions as follows:
+
+```{r}
+# Score matrix function for a game
+
+score_matrix <- function(post, game){
+  n_sample <- length(post[[game]])
+  home_p <- table(post[[game]])/n_sample # Posterior proportions of scores
+  away_p <- table(post[[game + 10]])/n_sample
+  
+  # Matrix of results.
+  m = round(home_p %o% away_p, 4)
+  return (m)
+}
+
+# Win/Loss/Draw Percentages.
+
+result_prob <- function(post, game) {
+  m = score_matrix(post, game)
+  hw = sum(m[lower.tri(m)])
+  d = sum(diag(m))
+  aw = sum(m[upper.tri(m)])
+  
+  return(c(hw = hw, d = d, aw = aw))
+}
+
+pred <- sapply(1:10, function(x) result_prob(m1post, x)) %>% 
+  data.frame() %>% t() 
+
+cbind(data %>% tail(n=10), pred)
+```
+
+## Model 2: Hierarchical Model
+
+``` stan
+{stan}
+#| eval: false
+data {
+  int<lower=0> nt; // number of teams (20)
+  int<lower=0> ng; // number of games (370)
+  int<lower=0> np; // number of games to predict (final 10 games)
+  array[ng] int<lower=1> ht; //home team index
+  array[ng] int<lower=1> at; // away team index
+  array[ng] int<lower=0> s1; // home team score
+  array[ng] int<lower=0> s2; // away team score
+  
+  array[np] int<lower=0> htp; // home team index for prediction
+  array[np] int<lower=0> atp; //away team index for prediction
+}
+
+parameters{
+  real home;
+  vector[nt] att;
+  vector[nt] def;
+  real att_bar;
+  real def_bar;
+  real<lower=0> att_tau;
+  real<lower=0> def_tau;
+}
+
+transformed parameters{
+  vector[ng] theta1; // poisson lambda for home team
+  vector[ng] theta2; //  poisson lambda for away team
+  
+  theta1 = exp(home + att[ht] - def[at]);
+  theta2 = exp(att[at] - def[ht]);
+}
+
+model{
+  
+  // high-level hyper priors.
+  att_bar ~ normal(0, 0.1);
+  att_tau ~ normal(0, 1);
+  def_bar ~ normal(0, 0.1);
+  def_tau ~ normal(0, 01);
+  
+  //low-level priors
+  att ~ normal(att_bar, att_tau);
+  def ~ normal(def_bar, def_tau);
+  home ~ normal(0, 1);
+  
+  // likelihood
+  s1 ~ poisson(theta1);
+  s2 ~ poisson(theta2);
+}
+
+generated quantities {
+  vector[np] theta1p; // home team predicted score
+  vector[np] theta2p; // away team predicted score.
+  
+  vector[ng] log_lik; // a vector of log-likelihood per observation
+  
+  array[np] int s1p; // score prediction for home using theta1p.
+  array[np] int s2p; // score prediction for away using theta2p.
+  
+  theta1p = exp(home + att[htp] - def[atp]);
+  theta2p = exp(att[atp] - def[htp]);
+  
+  s1p = poisson_rng(theta1p);
+  s2p = poisson_rng(theta2p);
+  
+  
+  // TODO generate a log-likelihood for WAIC loo-PSIS.
+  
+  for (i in 1:ng) {
+    log_lik[i] = poisson_lpmf(s1[i] | theta1[i]) + poisson_lpmf(s2[i] | theta2[i]);
+  }
+  
+}
+```
+
+```{r}
+m2 <- cmdstan_model("code/multilevel_model.stan")
+m2fit <- m2$sample(data = dat, chains = 8, parallel_chains = 8,
+                   refresh = 500)
+
+m2post <- m2fit$draws(variables = c("s1p", "s2p"), format = "df")
+
+```
+
+Plot the attack and defence strengths:
+
+```{r}
+m2ad <- m2fit$draws(variables = c("att", "def", "att_bar", "def_bar"),  format = "df") %>% data.frame()
+
+d_m2 <- tibble(
+  att2 = apply(m2ad[1:20], 2, mean),
+  att2_lc = apply(m2ad[1:20], 2, function(x) quantile(x, probs = 0.03)),
+  att2_uc = apply(m2ad[1:20], 2, function(x) quantile(x, probs = 0.97)),
+  def2 = apply(m2ad[21:40], 2, mean),
+  def2_lc = apply(m2ad[21:40], 2, function(x) quantile(x, probs = 0.03)),
+  def2_uc = apply(m2ad[21:40], 2, function(x) quantile(x, probs = 0.97)),
+  teams = teams
+)
+  
+d_m2 %>% ggplot(aes(x = att2, y = def2))+
+  geom_point(shape = 1, size = 3)+
+  geom_errorbar(aes(xmin = att2_lc, xmax = att2_uc), alpha = 0.2)+
+  geom_errorbar(aes(ymin = def2_lc, ymax = def2_uc), alpha = 0.2)+
+  geom_vline(xintercept = mean(m2ad$att_bar),
+             linetype = 2, alpha = 0.5)+
+  geom_hline(yintercept = mean(m2ad$def_bar), linetype = 2, alpha = 0.5)+
+  geom_text(data = d_m2[c(1, 2,3, 10, 13, 16, 20),], aes(label = teams),
+            hjust = -0.15, vjust = 0.15)+
+  annotate("text", -0.75, -0.05, label = expression(mu[def]))+
+  annotate("text", 0.15, 0.75, label = expression(mu[att]))+
+  
+  labs(x = "Attack Strength", y = "Defence Strength",
+       title = "PL 2023/24 Teams Att and Def Strengths",
+       subtitle = "Hierarchical Model")+
+  coord_cartesian(xlim = c(-0.8, 0.8), y = c(-0.8, 0.8))+
+  theme_classic()
+
+
+
+```
+
+Predictions:
+
+```{r}
+pred2 <- sapply(1:10, function(x) result_prob(m2post, x)) %>% 
+  data.frame() %>% t()
+
+cbind(data %>% tail(n = 10), pred2)
+
+```
