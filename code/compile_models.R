@@ -1,4 +1,4 @@
-packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior")
+packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior", "qs")
 lapply(packages, library, character.only = TRUE)
 
 
@@ -65,6 +65,9 @@ m1fit <- m1$sample(
   data = dat, chains = 8, parallel_chains = 8, refresh = 500
 )
 
+# Save the fitted model
+#qsave(x = m1fit, file = 'fits/normal_model.qs')
+#m1fit <- qread("fits/normal_model.qs")
 #--- Working with posterior draws ---#
 
 m1post = m1fit$draws(variables = c("s1p", "s2p"), format = "df")
@@ -100,6 +103,9 @@ pred <- sapply(1:10, function(x) result_prob(m1post, x)) %>%
 m2 <- cmdstan_model("code/multilevel_model.stan")
 m2fit <- m2$sample(data = dat, chains = 8, parallel_chains = 8,
                    refresh = 500)
+# Save the model for extraction:
+#qsave(x = m2fit, file = "fits/multilevel_model.qs")
+#m2fit <- qread("fits/multilevel_model.qs")
 
 m2post <- m2fit$draws(variables = c("s1p", "s2p"), format = "df")
 pred2 <- sapply(1:10, function(x) result_prob(m2post, x)) %>% 
@@ -176,7 +182,29 @@ d_m2 %>% ggplot(aes(x = att2, y = def2))+
 
 
 
-  
+# Comparison
+
+tibble(
+  att = c(d_m1$att1, d_m2$att2),
+  def = c(d_m1$def1, d_m2$def2),
+  Model = factor(rep(c("Normal","Multilevel"), each = 20)),
+  team = factor(rep(seq(1, 20), 2))
+) %>% ggplot(aes(x = att, y = def))+
+  geom_point(aes(color = Model), size = 3)+
+  scale_color_manual(
+    values = c(
+      "Normal" = "black",
+      "Multilevel" = "red"
+    )
+  )+
+  geom_line(aes(group = team), linewidth = 0.6)+
+  geom_vline(xintercept = mean(m2ad$att_bar),
+             linetype = 2, alpha = 0.5)+
+  geom_hline(yintercept = mean(m2ad$def_bar), linetype = 2, alpha = 0.5)+
+  annotate("text", -0.5, -0.05, label = expression(mu[def]))+
+  annotate("text", 0.15, 0.75, label = expression(mu[att]))+
+  labs(title = "Comparison between complete pooling and multilevel model")+
+  theme_classic()
 
 
 

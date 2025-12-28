@@ -2,18 +2,27 @@
 title: "Premier League Match Predictions using Bayesian Hierarchical Models"
 author: "Suhishan Bhandari"
 date: "December 25, 2025"
+format:
+  html: 
+    code-fold: true
+    code-tools: true
 toc: TRUE
+execute:
+  message: false
+  warning: false
 ---
 
-```{r,include=FALSE, message=FALSE}
-packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior")
+```{r}
+#| label: load packages
+#| include: false
+packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior","qs", "patchwork")
 lapply(packages, library, character.only = TRUE)
 
 ```
 
 # Introduction
 
-The blog aims to estimate every Premier League team's attack and defence strengths using their match scores from $37$ gameweeks (2023/24 season). Using these strength estimates, I then predict the results of the 38th gameweek.
+The blog aims to estimate every Premier League team's attack and defence strengths using their match scores from $37$ gameweeks (from the 2023/24 Premier League season). Using these strength estimates, I then predict the results of the 38th gameweek.
 
 # Model
 
@@ -26,11 +35,13 @@ s2 \sim poisson(\theta_2) \\
 \end{align}
 $$
 
-$s1$ and $s2$ are home and away scores respectively for a given match, which are assumed to be Poisson processes with their respective $\theta$. Scores are dependent on whether the team plays at home, and the attack and defence strengths of home team ($ht$) and away team($at$).
+$s1$ and $s2$ are home and away scores respectively for a given match, which are assumed to be Poisson processes with their respective $\theta$. Scores are dependent on whether the team plays at home, and the attack and defence strengths of the home team ($ht$) and the away team($at$).
 
 ## Data
 
-```{r, include=FALSE}
+```{r}
+#| include: false
+
 #--- Load the data and make it usable ---#
 
 data <-  read.csv("data/premfull23_24.csv")
@@ -62,12 +73,13 @@ data = data %>% mutate(
 
 ```
 
+In accordance with the mathematical model above, the data contains information on home and away team scores. Later, for inferential purposes, team names are indexed from $i = 1...20$.
+
 ```{r}
 head(data)
-
 ```
 
-```{r, include=FALSE}
+```{r}
 teams = unique(data$Home) # Team names
 ng = nrow(data) # number of games
 nt = length(unique(data$Home)) # number of teams
@@ -96,7 +108,9 @@ dat <-  list(
 
 ## Model 1
 
-The first model we will use for our inference is a complete pooling model where every team gets its own attack and defence parameters (different intercept for each) but none of these parameters are related to each other in any way. The stan code for the statistical model is shown below:
+The first model we will use for our inference is a complete pooling model where every team gets its own attack and defence parameters (different intercept for each) but none of these parameters are related to each other in any way. The stan code for the statistical model is shown below[^1]:
+
+[^1]: This model is influenced from the hierarchical model presented in stan's official YouTube channel. ([Link to the video.](https://www.youtube.com/watch?v=dNZQrcAjgXQ))
 
 ``` stan
 {stan}
@@ -163,19 +177,62 @@ generated quantities {
 }
 ```
 
+### Prior Predictive Simulation
+
+Before we venture into the realms of estimation and prediction, let's see the prior distribution of our parameters. Home Scores ($s1$) and Away Scores ($s2$) depend upon some average rate $\theta_1$ and $\theta_2$ respectively, which again depend upon a team's attack and defence strengths throughout the season. If parameters `home`, `att` and `def` are assumed to be normally distributed, and with $theta$ positivity restriction i.e. exponentiating so that $theta$s remain positive, the home and away scores ranges from $0$ to almost $25$ goals and beyond. This means that with these priors, the model, *a priori* believes that PL teams can score upto 25 goals in a game! (which is absurd). This is almost certainly a very flat prior with the only information being embedded that scores must be positive. However, given that we have 370 matches as sample size to aid in our inference, these priors will do for now. In a separate blog (maybe part 2), I will try to tweak and regularize these priors to see what changes.
+
+```{r}
+n <- 1000
+prior <- tibble(
+  home = rnorm(n, 0, 1),
+  att = rnorm(n, 0, 1),
+  def = rnorm(n, 0, 1 )
+) %>% mutate(
+  theta_1 = exp(home + att - def),
+  theta_2 = exp(att - def)
+) %>% mutate(
+  s1 = rpois(n, lambda = theta_1),
+  s2 = rpois(n, lambda = theta_2)
+)
+```
+
+```{r}
+#| warning: false
+s1_plot_prior <- prior %>% ggplot(aes(x = s1))+
+  geom_histogram(fill = "skyblue", color = 'black', bins = 20) +
+  xlim(0, 25)+
+  ylim(0, 300)+
+  labs(x = "Home Score")+
+  theme_classic()
+
+s2_plot_prior <- prior %>% ggplot(aes(x = s2))+
+  geom_histogram(fill = "red", color = 'black', alpha = 0.5, bins = 20) +  
+  xlim(0, 25)+
+  ylim(0, 300)+
+  labs(x = "Away Score")+
+  theme_classic()
+
+s1_plot_prior
+s2_plot_prior
+```
+
 ## Model 1 Estimates
 
-Extracting draws from the posterior:
+I compile the stan model with `cmdstanr`, which peruses and estimates the posterior using HMC, and I extract the posterior samples for $att$ and $def$ parameters for 20 teams. The relative $att$ and $def$ estimates for the 20 PL teams in 2023/24 is as follows:
 
-```{r, message=FALSE, warning=FALSE}
+```{r}
+#| warning: false
+#| output: false
 m1 <- cmdstan_model("code/normal_model.stan")
 
+# Running this only once
 m1fit <- m1$sample(
-  data = dat, chains = 8, parallel_chains = 8, refresh = 500
+  data = dat, chains = 8, parallel_chains = 8, refresh = 500, output_dir = "fits/csv"
 )
+qsave(x = m1fit, file = 'fits/normal_model.qs')
 
-#--- Working with posterior draws ---#
-m1post = m1fit$draws(variables = c("s1p", "s2p"), format = "df")
+# Load the fit from saved stan modelfit object
+m1fit <- qread("fits/normal_model.qs")
 
 ```
 
@@ -196,7 +253,7 @@ d_m1 <- tibble(
   teams = teams
 )
   
-d_m1 %>% ggplot(aes(x = att1, y = def1))+
+plot_normal <- d_m1 %>% ggplot(aes(x = att1, y = def1))+
   geom_point(shape = 1, size = 3)+
   geom_errorbar(aes(xmin = att1_lc, xmax = att1_uc), alpha = 0.1)+
   geom_errorbar(aes(ymin = def1_lc, ymax = def1_uc), alpha = 0.1)+
@@ -210,13 +267,21 @@ d_m1 %>% ggplot(aes(x = att1, y = def1))+
     coord_cartesian(xlim = c(-0.8, 0.8), y = c(-0.8, 0.8))+
   theme_classic()
 
+plot_normal
+
 
 ```
 
-These attack and defence estimates produce gameweek 38 predictions as follows:
+As shown by the figure, the model does a good job of providing relative attack and defence strength estimates, with power clubs like Arsenal, Manchester City, and Liverpool high on both metrics and relegated clubs Burnley, Luton Town and Sheffield United relatively weaker. It must be pointed out that while the point estimates show relative differences, the credible intervals are wide and as such, to see whether there's a significant difference between any two teams, we must use the posterior contrast. Nonetheless, the model provides a general picture of relative strengths.
+
+Using these relative attack and defence strength parameters, we can then estimate likely scores and win/lose/draw probabilities for the final gameweek. For this purpose, I extract posterior samples for the home and away prediction for the final gameweek $s1p$ and $s2p$. Stan provides the posterior of the prediction for us because of the way the `generated quantities` block is coded. We could have also gotten $s1p$ and $s2p$ outside stan, by using predictions of $\theta_{1p}$ and $\theta_{2p}$.
+
+Then, I write two functions: a) `score_matrix` which returns a matrix of probabilties of each home and away score, and b) `result_prob` which uses this score matrix to return win, loss and draw probabilities.
 
 ```{r}
 # Score matrix function for a game
+#--- Working with posterior draws ---#
+m1post = m1fit$draws(variables = c("s1p", "s2p"), format = "df")
 
 score_matrix <- function(post, game){
   n_sample <- length(post[[game]])
@@ -224,7 +289,7 @@ score_matrix <- function(post, game){
   away_p <- table(post[[game + 10]])/n_sample
   
   # Matrix of results.
-  m = round(home_p %o% away_p, 4)
+  m = round(home_p %o% away_p, 3)
   return (m)
 }
 
@@ -239,14 +304,35 @@ result_prob <- function(post, game) {
   return(c(hw = hw, d = d, aw = aw))
 }
 
+```
+
+For example, for gameweek 38's match between Arsenal and Everton, the model estimates the goal matrix and result probabilities as follows:
+
+```{r}
+score_matrix(m1post, 1)
+result_prob(m1post, 1)
+```
+
+The score matrix shows that the most likely scoreline is Arsenal 2 - 0 Everton (highest probability of joint occurrence) and that Arsenal is $75\%$ likely to win the match. If we estimate result probabilties for all 10 games we have:
+
+```{r}
+
 pred <- sapply(1:10, function(x) result_prob(m1post, x)) %>% 
   data.frame() %>% t() 
 
-cbind(data %>% tail(n=10), pred)
+cbind(data %>% tail(n=10), pred) %>% as_tibble()
 ```
+
+The model estimates results for 8 matches correct, with varying certainty. The model gets it wrong on the final 2 games: Brighton vs. Man United and Crystal Palace vs. Aston Villa. This sheds a light into one of the limitations of the model (among its many limitations): the model does not take into account recent matches momentum, which Crystal Palace were enjoying very much from Oliver Glasner's new appointment and a string of good results before the final gameweek.
+
+Can a hierarchical model do better?
 
 ## Model 2: Hierarchical Model
 
+In a hierarchical (or multilevel model), we assume that our attack and defence strength parameters come from  population attack and defence strength i.e. instead of assuming that each team's attack and defence strengths being modelled and estimated independent of other teams, the parameters are now draws from a population parameter. For e.g. $att[1..20]$ takes as its prior $att_bar$ as mean and $att_tau$ as standard deviation. The benefit of using such a hierarchical model is that it aids in minimizing over-fitting, whereby, if a team once scored 8 goals in match, the model is more sceptical than the complete-pooling model. Multilevel model shrinks extreme attack and defence strengths towards the mean. This is reasonable given the unpredictability of football results, whereby even in a game between a high-ranked team and a low-ranked team, the saying goes that 'anything can happen in one football game'. Since it is our goal to predict the final gameweek, multilevel model incorporates our own sense of unpredictability and scepticism rather well. Multi-level models also squeeze a lot more information out of the data.
+
+
+The stan code:
 ``` stan
 {stan}
 #| eval: false
@@ -323,13 +409,16 @@ generated quantities {
   
 }
 ```
-
+Fit the model:
 ```{r}
+#| warning: false
+#| output: false
 m2 <- cmdstan_model("code/multilevel_model.stan")
 m2fit <- m2$sample(data = dat, chains = 8, parallel_chains = 8,
-                   refresh = 500)
+                   refresh = 500, output_dir = "fits/csv")
 
-m2post <- m2fit$draws(variables = c("s1p", "s2p"), format = "df")
+qsave(x = m2fit, file = "fits/multilevel_model.qs")
+m2fit <- qread("fits/multilevel_model.qs")
 
 ```
 
@@ -348,7 +437,7 @@ d_m2 <- tibble(
   teams = teams
 )
   
-d_m2 %>% ggplot(aes(x = att2, y = def2))+
+plot_multilevel <- d_m2 %>% ggplot(aes(x = att2, y = def2))+
   geom_point(shape = 1, size = 3)+
   geom_errorbar(aes(xmin = att2_lc, xmax = att2_uc), alpha = 0.2)+
   geom_errorbar(aes(ymin = def2_lc, ymax = def2_uc), alpha = 0.2)+
@@ -367,15 +456,64 @@ d_m2 %>% ggplot(aes(x = att2, y = def2))+
   theme_classic()
 
 
+plot_multilevel
+
 
 ```
+The figure plots the relative attack and defence strengths of teams in the Premier League using a hierarchical model. While we are going to see a comparison between complete pooling estimates and hierarchical model estimates, we can identity. one major difference in that the estimates are much more bunched together. Let's see what this model predicts in terms of result probabilities.
 
 Predictions:
 
 ```{r}
+m2post <- m2fit$draws(variables = c("s1p", "s2p"), format = "df")
+
 pred2 <- sapply(1:10, function(x) result_prob(m2post, x)) %>% 
   data.frame() %>% t()
+colnames(pred2) <- c("hw2", "d2", "aw2")
+cbind(data %>% tail(n = 10), pred2) %>% as_tibble()
 
-cbind(data %>% tail(n = 10), pred2)
+```
+While the hit-rate for the hierarchical model is the same as the complete pooling model (8 out 10 correct), we see that hierarchical model predictions are much more conservative. For example, while the normal model gave $82\%$ chance that Manchester City win their last home game, the multilevel model predicts it at $77\%$.
 
+## Comparison
+
+The figure shows the most important difference between a complete-pooling and hierarchical model, that the hierarchical model is sceptical of relatively extreme estimates and tend to shrink towards the mean. As is shown by the figure, the red points are much closer to $\mu_att$ and $\mu_def$ than their black (complete pooling counterparts).
+
+```{r}
+tibble(
+  att = c(d_m1$att1, d_m2$att2),
+  def = c(d_m1$def1, d_m2$def2),
+  Model = factor(rep(c("Normal","Multilevel"), each = 20)),
+  team = factor(rep(seq(1, 20), 2))
+) %>% ggplot(aes(x = att, y = def))+
+  geom_point(aes(color = Model), size = 3)+
+  scale_color_manual(
+    values = c(
+      "Normal" = "black",
+      "Multilevel" = "red"
+    )
+  )+
+  geom_line(aes(group = team), linewidth = 0.6)+
+  geom_vline(xintercept = mean(m2ad$att_bar),
+             linetype = 2, alpha = 0.5)+
+  geom_hline(yintercept = mean(m2ad$def_bar), linetype = 2, alpha = 0.5)+
+  annotate("text", -0.5, -0.05, label = expression(mu[def]))+
+  annotate("text", 0.15, 0.75, label = expression(mu[att]))+
+  labs(title = "Comparison between complete pooling and multilevel model")+
+  theme_classic()
+
+
+
+
+```
+
+
+Prediction Comparison:
+
+While the hit-rates for correct predictions were the same, a point to be noted is that the hierarchical model had Crystal Palace on much higher likelihood of win $34.7\%$ than the normal model $32\%$. In the second part of this blog, we will look at and compare the out-of-sample deviance between the two models, especially if the sample size is small.
+
+```{r}
+cbind(data %>% tail(n = 10),
+      pred,
+      pred2) %>% as_tibble()
 ```
