@@ -447,18 +447,18 @@ s2 \sim poisson(\theta_2) \\
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>    
-         0     1     2     3 4
-  0  0.089 0.039 0.008 0.001 0
-  1  0.169 0.074 0.015 0.003 0
-  2  0.167 0.073 0.015 0.003 0
-  3  0.116 0.051 0.010 0.002 0
-  4  0.064 0.028 0.006 0.001 0
-  5  0.026 0.011 0.002 0.000 0
-  6  0.013 0.006 0.001 0.000 0
-  7  0.003 0.001 0.000 0.000 0
-  8  0.001 0.000 0.000 0.000 0
-  9  0.000 0.000 0.000 0.000 0
-  10 0.000 0.000 0.000 0.000 0</code></pre>
+         0     1     2     3 4 5
+  0  0.084 0.036 0.008 0.001 0 0
+  1  0.168 0.072 0.016 0.003 0 0
+  2  0.171 0.073 0.017 0.003 0 0
+  3  0.119 0.051 0.012 0.002 0 0
+  4  0.062 0.026 0.006 0.001 0 0
+  5  0.028 0.012 0.003 0.000 0 0
+  6  0.010 0.004 0.001 0.000 0 0
+  7  0.004 0.002 0.000 0.000 0 0
+  8  0.001 0.001 0.000 0.000 0 0
+  9  0.000 0.000 0.000 0.000 0 0
+  10 0.000 0.000 0.000 0.000 0 0</code></pre>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
@@ -466,7 +466,7 @@ s2 \sim poisson(\theta_2) \\
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>   hw     d    aw 
-0.749 0.180 0.069 </code></pre>
+0.755 0.175 0.067 </code></pre>
 </div>
 </div>
 <p>The score matrix shows that the most likely scoreline is Arsenal 2 - 0 Everton (highest probability of joint occurrence) and that Arsenal is <span class="math inline">\(75\%\)</span> likely to win the match. If we estimate result probabilties for all 10 games we have:</p>
@@ -476,20 +476,22 @@ s2 \sim poisson(\theta_2) \\
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>pred <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="cf">function</span>(x) <span class="fu">result_prob</span>(m1post, x)) <span class="sc">%&gt;%</span> </span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>() <span class="sc">%&gt;%</span> <span class="fu">t</span>() </span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n=</span><span class="dv">10</span>), pred)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n=</span><span class="dv">10</span>), pred) <span class="sc">%&gt;%</span> <span class="fu">as_tibble</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>                Home s1 s2              Away    hw     d    aw
-371          Arsenal  2  1           Everton 0.749 0.180 0.069
-372 Sheffield United  0  3         Tottenham 0.129 0.151 0.716
-373        Brentford  2  4  Newcastle United 0.327 0.214 0.455
-374          Burnley  1  2 Nottingham Forest 0.355 0.252 0.389
-375          Chelsea  2  1       Bournemouth 0.603 0.186 0.206
-376        Liverpool  2  0            Wolves 0.740 0.156 0.104
-377       Luton Town  2  4            Fulham 0.352 0.233 0.414
-378  Manchester City  3  1          West Ham 0.830 0.105 0.060
-379         Brighton  0  2 Manchester United 0.431 0.246 0.324
-380   Crystal Palace  5  0       Aston Villa 0.322 0.229 0.445</code></pre>
+<pre><code># A tibble: 10 × 7
+   Home                s1    s2 Away                 hw     d    aw
+   &lt;chr&gt;            &lt;int&gt; &lt;int&gt; &lt;chr&gt;             &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+ 1 Arsenal              2     1 Everton           0.755 0.175 0.067
+ 2 Sheffield United     0     3 Tottenham         0.127 0.149 0.721
+ 3 Brentford            2     4 Newcastle United  0.329 0.211 0.455
+ 4 Burnley              1     2 Nottingham Forest 0.354 0.252 0.391
+ 5 Chelsea              2     1 Bournemouth       0.612 0.183 0.2  
+ 6 Liverpool            2     0 Wolves            0.738 0.152 0.102
+ 7 Luton Town           2     4 Fulham            0.349 0.234 0.413
+ 8 Manchester City      3     1 West Ham          0.831 0.107 0.06 
+ 9 Brighton             0     2 Manchester United 0.433 0.246 0.318
+10 Crystal Palace       5     0 Aston Villa       0.323 0.228 0.445</code></pre>
 </div>
 </div>
 <p>The model estimates results for 8 matches correct, with varying certainty. The model gets it wrong on the final 2 games: Brighton vs.&nbsp;Man United and Crystal Palace vs.&nbsp;Aston Villa. This sheds a light into one of the limitations of the model (among its many limitations): the model does not take into account recent matches momentum, which Crystal Palace were enjoying very much from Oliver Glasner’s new appointment and a string of good results before the final gameweek.</p>
@@ -640,20 +642,22 @@ s2 \sim poisson(\theta_2) \\
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>pred2 <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="cf">function</span>(x) <span class="fu">result_prob</span>(m2post, x)) <span class="sc">%&gt;%</span> </span>
 <span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>() <span class="sc">%&gt;%</span> <span class="fu">t</span>()</span>
 <span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pred2) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"hw2"</span>, <span class="st">"d2"</span>, <span class="st">"aw2"</span>)</span>
-<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n =</span> <span class="dv">10</span>), pred2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n =</span> <span class="dv">10</span>), pred2) <span class="sc">%&gt;%</span> <span class="fu">as_tibble</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>                Home s1 s2              Away   hw2    d2   aw2
-371          Arsenal  2  1           Everton 0.707 0.190 0.103
-372 Sheffield United  0  3         Tottenham 0.175 0.175 0.646
-373        Brentford  2  4  Newcastle United 0.352 0.221 0.424
-374          Burnley  1  2 Nottingham Forest 0.364 0.250 0.384
-375          Chelsea  2  1       Bournemouth 0.590 0.195 0.214
-376        Liverpool  2  0            Wolves 0.702 0.169 0.127
-377       Luton Town  2  4            Fulham 0.369 0.236 0.393
-378  Manchester City  3  1          West Ham 0.780 0.131 0.091
-379         Brighton  0  2 Manchester United 0.440 0.241 0.316
-380   Crystal Palace  5  0       Aston Villa 0.349 0.234 0.413</code></pre>
+<pre><code># A tibble: 10 × 7
+   Home                s1    s2 Away                hw2    d2   aw2
+   &lt;chr&gt;            &lt;int&gt; &lt;int&gt; &lt;chr&gt;             &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+ 1 Arsenal              2     1 Everton           0.704 0.19  0.104
+ 2 Sheffield United     0     3 Tottenham         0.18  0.18  0.638
+ 3 Brentford            2     4 Newcastle United  0.35  0.223 0.425
+ 4 Burnley              1     2 Nottingham Forest 0.374 0.25  0.375
+ 5 Chelsea              2     1 Bournemouth       0.581 0.196 0.217
+ 6 Liverpool            2     0 Wolves            0.694 0.17  0.134
+ 7 Luton Town           2     4 Fulham            0.368 0.234 0.393
+ 8 Manchester City      3     1 West Ham          0.774 0.131 0.094
+ 9 Brighton             0     2 Manchester United 0.441 0.242 0.314
+10 Crystal Palace       5     0 Aston Villa       0.348 0.235 0.416</code></pre>
 </div>
 </div>
 <p>While the hit-rate for the hierarchical model is the same as the complete pooling model (8 out 10 correct), we see that hierarchical model predictions are much more conservative. For example, while the normal model gave <span class="math inline">\(82\%\)</span> chance that Manchester City win their last home game, the multilevel model predicts it at <span class="math inline">\(77\%\)</span>.</p>
@@ -707,16 +711,16 @@ s2 \sim poisson(\theta_2) \\
 <pre><code># A tibble: 10 × 10
    Home                s1    s2 Away            hw     d    aw   hw2    d2   aw2
    &lt;chr&gt;            &lt;int&gt; &lt;int&gt; &lt;chr&gt;        &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
- 1 Arsenal              2     1 Everton      0.749 0.18  0.069 0.707 0.19  0.103
- 2 Sheffield United     0     3 Tottenham    0.129 0.151 0.716 0.175 0.175 0.646
- 3 Brentford            2     4 Newcastle U… 0.327 0.214 0.455 0.352 0.221 0.424
- 4 Burnley              1     2 Nottingham … 0.355 0.252 0.389 0.364 0.25  0.384
- 5 Chelsea              2     1 Bournemouth  0.603 0.186 0.206 0.59  0.195 0.214
- 6 Liverpool            2     0 Wolves       0.74  0.156 0.104 0.702 0.169 0.127
- 7 Luton Town           2     4 Fulham       0.352 0.233 0.414 0.369 0.236 0.393
- 8 Manchester City      3     1 West Ham     0.83  0.105 0.06  0.78  0.131 0.091
- 9 Brighton             0     2 Manchester … 0.431 0.246 0.324 0.44  0.241 0.316
-10 Crystal Palace       5     0 Aston Villa  0.322 0.229 0.445 0.349 0.234 0.413</code></pre>
+ 1 Arsenal              2     1 Everton      0.755 0.175 0.067 0.704 0.19  0.104
+ 2 Sheffield United     0     3 Tottenham    0.127 0.149 0.721 0.18  0.18  0.638
+ 3 Brentford            2     4 Newcastle U… 0.329 0.211 0.455 0.35  0.223 0.425
+ 4 Burnley              1     2 Nottingham … 0.354 0.252 0.391 0.374 0.25  0.375
+ 5 Chelsea              2     1 Bournemouth  0.612 0.183 0.2   0.581 0.196 0.217
+ 6 Liverpool            2     0 Wolves       0.738 0.152 0.102 0.694 0.17  0.134
+ 7 Luton Town           2     4 Fulham       0.349 0.234 0.413 0.368 0.234 0.393
+ 8 Manchester City      3     1 West Ham     0.831 0.107 0.06  0.774 0.131 0.094
+ 9 Brighton             0     2 Manchester … 0.433 0.246 0.318 0.441 0.242 0.314
+10 Crystal Palace       5     0 Aston Villa  0.323 0.228 0.445 0.348 0.235 0.416</code></pre>
 </div>
 </div>
 <!-- -->
@@ -1503,7 +1507,7 @@ s2 \sim poisson(\theta_2) \\
 <span id="cb25-341"><a href="#cb25-341" aria-hidden="true" tabindex="-1"></a>pred <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="cf">function</span>(x) <span class="fu">result_prob</span>(m1post, x)) <span class="sc">%&gt;%</span> </span>
 <span id="cb25-342"><a href="#cb25-342" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>() <span class="sc">%&gt;%</span> <span class="fu">t</span>() </span>
 <span id="cb25-343"><a href="#cb25-343" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-344"><a href="#cb25-344" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n=</span><span class="dv">10</span>), pred)</span>
+<span id="cb25-344"><a href="#cb25-344" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n=</span><span class="dv">10</span>), pred) <span class="sc">%&gt;%</span> <span class="fu">as_tibble</span>()</span>
 <span id="cb25-345"><a href="#cb25-345" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb25-346"><a href="#cb25-346" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-347"><a href="#cb25-347" aria-hidden="true" tabindex="-1"></a>The model estimates results for 8 matches correct, with varying certainty. The model gets it wrong on the final 2 games: Brighton vs. Man United and Crystal Palace vs. Aston Villa. This sheds a light into one of the limitations of the model (among its many limitations): the model does not take into account recent matches momentum, which Crystal Palace were enjoying very much from Oliver Glasner's new appointment and a string of good results before the final gameweek.</span>
@@ -1512,10 +1516,10 @@ s2 \sim poisson(\theta_2) \\
 <span id="cb25-350"><a href="#cb25-350" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-351"><a href="#cb25-351" aria-hidden="true" tabindex="-1"></a><span class="fu">## Model 2: Hierarchical Model</span></span>
 <span id="cb25-352"><a href="#cb25-352" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-353"><a href="#cb25-353" aria-hidden="true" tabindex="-1"></a>In a hierarchical (or multilevel model), we assume that our attack and defence strength parameters come from  population attack and defence strength i.e. instead of assuming that each team's attack and defence strengths being modelled and estimated independent of other teams, the parameters are now draws from a population parameter. For e.g. $att<span class="co">[</span><span class="ot">1..20</span><span class="co">]</span>$ takes as its prior $att_bar$ as mean and $att_tau$ as standard deviation. The benefit of using such a hierarchical model is that it aids in minimizing over-fitting, whereby, if a team once scored 8 goals in match, the model is more sceptical than the complete-pooling model. Multilevel model shrinks extreme attack and defence strengths towards the mean. This is reasonable given the unpredictability of football results, whereby even in a game between a high-ranked team and a low-ranked team, the saying goes that 'anything can happen in one football game'. Since it is our goal to predict the final gameweek, multilevel model incorporates our own sense of unpredictability and scepticism rather well. Multi-level models also squeeze a lot more information out of the data.</span>
+<span id="cb25-353"><a href="#cb25-353" aria-hidden="true" tabindex="-1"></a>In a hierarchical (or multilevel model), we assume that our attack and defence strength parameters come from population attack and defence strength i.e. instead of assuming that each team's attack and defence strengths being modelled and estimated independent of other teams, the parameters are now draws from a population parameter. For e.g. $att<span class="co">[</span><span class="ot">1..20</span><span class="co">]</span>$ takes as its prior $att_bar$ as mean and $att_tau$ as standard deviation. The benefit of using such a hierarchical model is that it aids in minimizing over-fitting, whereby, if a team once scored 8 goals in match, the model is more sceptical than the complete-pooling model. Multilevel model shrinks extreme attack and defence strengths towards the mean. This is reasonable given the unpredictability of football results, whereby even in a game between a high-ranked team and a low-ranked team, the saying goes that 'anything can happen in one football game'. Since it is our goal to predict the final gameweek, multilevel model incorporates our own sense of unpredictability and scepticism rather well. Multi-level models also squeeze a lot more information out of the data.</span>
 <span id="cb25-354"><a href="#cb25-354" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-355"><a href="#cb25-355" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-356"><a href="#cb25-356" aria-hidden="true" tabindex="-1"></a>The stan code:</span>
+<span id="cb25-355"><a href="#cb25-355" aria-hidden="true" tabindex="-1"></a>The stan code:</span>
+<span id="cb25-356"><a href="#cb25-356" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-357"><a href="#cb25-357" aria-hidden="true" tabindex="-1"></a><span class="in">``` stan</span></span>
 <span id="cb25-358"><a href="#cb25-358" aria-hidden="true" tabindex="-1"></a><span class="in">{stan}</span></span>
 <span id="cb25-359"><a href="#cb25-359" aria-hidden="true" tabindex="-1"></a><span class="in">#| eval: false</span></span>
@@ -1592,114 +1596,117 @@ s2 \sim poisson(\theta_2) \\
 <span id="cb25-430"><a href="#cb25-430" aria-hidden="true" tabindex="-1"></a><span class="in">  </span></span>
 <span id="cb25-431"><a href="#cb25-431" aria-hidden="true" tabindex="-1"></a><span class="in">}</span></span>
 <span id="cb25-432"><a href="#cb25-432" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb25-433"><a href="#cb25-433" aria-hidden="true" tabindex="-1"></a>Fit the model:</span>
-<span id="cb25-436"><a href="#cb25-436" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb25-437"><a href="#cb25-437" aria-hidden="true" tabindex="-1"></a><span class="co">#| warning: false</span></span>
-<span id="cb25-438"><a href="#cb25-438" aria-hidden="true" tabindex="-1"></a><span class="co">#| output: false</span></span>
-<span id="cb25-439"><a href="#cb25-439" aria-hidden="true" tabindex="-1"></a>m2 <span class="ot">&lt;-</span> <span class="fu">cmdstan_model</span>(<span class="st">"code/multilevel_model.stan"</span>)</span>
-<span id="cb25-440"><a href="#cb25-440" aria-hidden="true" tabindex="-1"></a>m2fit <span class="ot">&lt;-</span> m2<span class="sc">$</span><span class="fu">sample</span>(<span class="at">data =</span> dat, <span class="at">chains =</span> <span class="dv">8</span>, <span class="at">parallel_chains =</span> <span class="dv">8</span>,</span>
-<span id="cb25-441"><a href="#cb25-441" aria-hidden="true" tabindex="-1"></a>                   <span class="at">refresh =</span> <span class="dv">500</span>, <span class="at">output_dir =</span> <span class="st">"fits/csv"</span>)</span>
-<span id="cb25-442"><a href="#cb25-442" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-443"><a href="#cb25-443" aria-hidden="true" tabindex="-1"></a><span class="fu">qsave</span>(<span class="at">x =</span> m2fit, <span class="at">file =</span> <span class="st">"fits/multilevel_model.qs"</span>)</span>
-<span id="cb25-444"><a href="#cb25-444" aria-hidden="true" tabindex="-1"></a>m2fit <span class="ot">&lt;-</span> <span class="fu">qread</span>(<span class="st">"fits/multilevel_model.qs"</span>)</span>
-<span id="cb25-445"><a href="#cb25-445" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-446"><a href="#cb25-446" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-433"><a href="#cb25-433" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-434"><a href="#cb25-434" aria-hidden="true" tabindex="-1"></a>Fit the model:</span>
+<span id="cb25-435"><a href="#cb25-435" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-438"><a href="#cb25-438" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-439"><a href="#cb25-439" aria-hidden="true" tabindex="-1"></a><span class="co">#| warning: false</span></span>
+<span id="cb25-440"><a href="#cb25-440" aria-hidden="true" tabindex="-1"></a><span class="co">#| output: false</span></span>
+<span id="cb25-441"><a href="#cb25-441" aria-hidden="true" tabindex="-1"></a>m2 <span class="ot">&lt;-</span> <span class="fu">cmdstan_model</span>(<span class="st">"code/multilevel_model.stan"</span>)</span>
+<span id="cb25-442"><a href="#cb25-442" aria-hidden="true" tabindex="-1"></a>m2fit <span class="ot">&lt;-</span> m2<span class="sc">$</span><span class="fu">sample</span>(<span class="at">data =</span> dat, <span class="at">chains =</span> <span class="dv">8</span>, <span class="at">parallel_chains =</span> <span class="dv">8</span>,</span>
+<span id="cb25-443"><a href="#cb25-443" aria-hidden="true" tabindex="-1"></a>                   <span class="at">refresh =</span> <span class="dv">500</span>, <span class="at">output_dir =</span> <span class="st">"fits/csv"</span>)</span>
+<span id="cb25-444"><a href="#cb25-444" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-445"><a href="#cb25-445" aria-hidden="true" tabindex="-1"></a><span class="fu">qsave</span>(<span class="at">x =</span> m2fit, <span class="at">file =</span> <span class="st">"fits/multilevel_model.qs"</span>)</span>
+<span id="cb25-446"><a href="#cb25-446" aria-hidden="true" tabindex="-1"></a>m2fit <span class="ot">&lt;-</span> <span class="fu">qread</span>(<span class="st">"fits/multilevel_model.qs"</span>)</span>
 <span id="cb25-447"><a href="#cb25-447" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-448"><a href="#cb25-448" aria-hidden="true" tabindex="-1"></a>Plot the attack and defence strengths:</span>
+<span id="cb25-448"><a href="#cb25-448" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb25-449"><a href="#cb25-449" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-452"><a href="#cb25-452" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb25-453"><a href="#cb25-453" aria-hidden="true" tabindex="-1"></a>m2ad <span class="ot">&lt;-</span> m2fit<span class="sc">$</span><span class="fu">draws</span>(<span class="at">variables =</span> <span class="fu">c</span>(<span class="st">"att"</span>, <span class="st">"def"</span>, <span class="st">"att_bar"</span>, <span class="st">"def_bar"</span>),  <span class="at">format =</span> <span class="st">"df"</span>) <span class="sc">%&gt;%</span> <span class="fu">data.frame</span>()</span>
-<span id="cb25-454"><a href="#cb25-454" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-455"><a href="#cb25-455" aria-hidden="true" tabindex="-1"></a>d_m2 <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
-<span id="cb25-456"><a href="#cb25-456" aria-hidden="true" tabindex="-1"></a>  <span class="at">att2 =</span> <span class="fu">apply</span>(m2ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, mean),</span>
-<span id="cb25-457"><a href="#cb25-457" aria-hidden="true" tabindex="-1"></a>  <span class="at">att2_lc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.03</span>)),</span>
-<span id="cb25-458"><a href="#cb25-458" aria-hidden="true" tabindex="-1"></a>  <span class="at">att2_uc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.97</span>)),</span>
-<span id="cb25-459"><a href="#cb25-459" aria-hidden="true" tabindex="-1"></a>  <span class="at">def2 =</span> <span class="fu">apply</span>(m2ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, mean),</span>
-<span id="cb25-460"><a href="#cb25-460" aria-hidden="true" tabindex="-1"></a>  <span class="at">def2_lc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.03</span>)),</span>
-<span id="cb25-461"><a href="#cb25-461" aria-hidden="true" tabindex="-1"></a>  <span class="at">def2_uc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.97</span>)),</span>
-<span id="cb25-462"><a href="#cb25-462" aria-hidden="true" tabindex="-1"></a>  <span class="at">teams =</span> teams</span>
-<span id="cb25-463"><a href="#cb25-463" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb25-464"><a href="#cb25-464" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb25-465"><a href="#cb25-465" aria-hidden="true" tabindex="-1"></a>plot_multilevel <span class="ot">&lt;-</span> d_m2 <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> att2, <span class="at">y =</span> def2))<span class="sc">+</span></span>
-<span id="cb25-466"><a href="#cb25-466" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">shape =</span> <span class="dv">1</span>, <span class="at">size =</span> <span class="dv">3</span>)<span class="sc">+</span></span>
-<span id="cb25-467"><a href="#cb25-467" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">xmin =</span> att2_lc, <span class="at">xmax =</span> att2_uc), <span class="at">alpha =</span> <span class="fl">0.2</span>)<span class="sc">+</span></span>
-<span id="cb25-468"><a href="#cb25-468" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">ymin =</span> def2_lc, <span class="at">ymax =</span> def2_uc), <span class="at">alpha =</span> <span class="fl">0.2</span>)<span class="sc">+</span></span>
-<span id="cb25-469"><a href="#cb25-469" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(m2ad<span class="sc">$</span>att_bar),</span>
-<span id="cb25-470"><a href="#cb25-470" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
-<span id="cb25-471"><a href="#cb25-471" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fu">mean</span>(m2ad<span class="sc">$</span>def_bar), <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
-<span id="cb25-472"><a href="#cb25-472" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="at">data =</span> d_m2[<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>,<span class="dv">3</span>, <span class="dv">10</span>, <span class="dv">13</span>, <span class="dv">16</span>, <span class="dv">20</span>),], <span class="fu">aes</span>(<span class="at">label =</span> teams),</span>
-<span id="cb25-473"><a href="#cb25-473" aria-hidden="true" tabindex="-1"></a>            <span class="at">hjust =</span> <span class="sc">-</span><span class="fl">0.15</span>, <span class="at">vjust =</span> <span class="fl">0.15</span>)<span class="sc">+</span></span>
-<span id="cb25-474"><a href="#cb25-474" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="sc">-</span><span class="fl">0.75</span>, <span class="sc">-</span><span class="fl">0.05</span>, <span class="at">label =</span> <span class="fu">expression</span>(mu[def]))<span class="sc">+</span></span>
-<span id="cb25-475"><a href="#cb25-475" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="fl">0.15</span>, <span class="fl">0.75</span>, <span class="at">label =</span> <span class="fu">expression</span>(mu[att]))<span class="sc">+</span></span>
-<span id="cb25-476"><a href="#cb25-476" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb25-477"><a href="#cb25-477" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Attack Strength"</span>, <span class="at">y =</span> <span class="st">"Defence Strength"</span>,</span>
-<span id="cb25-478"><a href="#cb25-478" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">"PL 2023/24 Teams Att and Def Strengths"</span>,</span>
-<span id="cb25-479"><a href="#cb25-479" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Hierarchical Model"</span>)<span class="sc">+</span></span>
-<span id="cb25-480"><a href="#cb25-480" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.8</span>, <span class="fl">0.8</span>), <span class="at">y =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.8</span>, <span class="fl">0.8</span>))<span class="sc">+</span></span>
-<span id="cb25-481"><a href="#cb25-481" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span>
-<span id="cb25-482"><a href="#cb25-482" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-483"><a href="#cb25-483" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-484"><a href="#cb25-484" aria-hidden="true" tabindex="-1"></a>plot_multilevel</span>
+<span id="cb25-450"><a href="#cb25-450" aria-hidden="true" tabindex="-1"></a>Plot the attack and defence strengths:</span>
+<span id="cb25-451"><a href="#cb25-451" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-454"><a href="#cb25-454" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-455"><a href="#cb25-455" aria-hidden="true" tabindex="-1"></a>m2ad <span class="ot">&lt;-</span> m2fit<span class="sc">$</span><span class="fu">draws</span>(<span class="at">variables =</span> <span class="fu">c</span>(<span class="st">"att"</span>, <span class="st">"def"</span>, <span class="st">"att_bar"</span>, <span class="st">"def_bar"</span>),  <span class="at">format =</span> <span class="st">"df"</span>) <span class="sc">%&gt;%</span> <span class="fu">data.frame</span>()</span>
+<span id="cb25-456"><a href="#cb25-456" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-457"><a href="#cb25-457" aria-hidden="true" tabindex="-1"></a>d_m2 <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb25-458"><a href="#cb25-458" aria-hidden="true" tabindex="-1"></a>  <span class="at">att2 =</span> <span class="fu">apply</span>(m2ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, mean),</span>
+<span id="cb25-459"><a href="#cb25-459" aria-hidden="true" tabindex="-1"></a>  <span class="at">att2_lc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.03</span>)),</span>
+<span id="cb25-460"><a href="#cb25-460" aria-hidden="true" tabindex="-1"></a>  <span class="at">att2_uc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.97</span>)),</span>
+<span id="cb25-461"><a href="#cb25-461" aria-hidden="true" tabindex="-1"></a>  <span class="at">def2 =</span> <span class="fu">apply</span>(m2ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, mean),</span>
+<span id="cb25-462"><a href="#cb25-462" aria-hidden="true" tabindex="-1"></a>  <span class="at">def2_lc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.03</span>)),</span>
+<span id="cb25-463"><a href="#cb25-463" aria-hidden="true" tabindex="-1"></a>  <span class="at">def2_uc =</span> <span class="fu">apply</span>(m2ad[<span class="dv">21</span><span class="sc">:</span><span class="dv">40</span>], <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">quantile</span>(x, <span class="at">probs =</span> <span class="fl">0.97</span>)),</span>
+<span id="cb25-464"><a href="#cb25-464" aria-hidden="true" tabindex="-1"></a>  <span class="at">teams =</span> teams</span>
+<span id="cb25-465"><a href="#cb25-465" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb25-466"><a href="#cb25-466" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb25-467"><a href="#cb25-467" aria-hidden="true" tabindex="-1"></a>plot_multilevel <span class="ot">&lt;-</span> d_m2 <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> att2, <span class="at">y =</span> def2))<span class="sc">+</span></span>
+<span id="cb25-468"><a href="#cb25-468" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="at">shape =</span> <span class="dv">1</span>, <span class="at">size =</span> <span class="dv">3</span>)<span class="sc">+</span></span>
+<span id="cb25-469"><a href="#cb25-469" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">xmin =</span> att2_lc, <span class="at">xmax =</span> att2_uc), <span class="at">alpha =</span> <span class="fl">0.2</span>)<span class="sc">+</span></span>
+<span id="cb25-470"><a href="#cb25-470" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_errorbar</span>(<span class="fu">aes</span>(<span class="at">ymin =</span> def2_lc, <span class="at">ymax =</span> def2_uc), <span class="at">alpha =</span> <span class="fl">0.2</span>)<span class="sc">+</span></span>
+<span id="cb25-471"><a href="#cb25-471" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(m2ad<span class="sc">$</span>att_bar),</span>
+<span id="cb25-472"><a href="#cb25-472" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
+<span id="cb25-473"><a href="#cb25-473" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fu">mean</span>(m2ad<span class="sc">$</span>def_bar), <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
+<span id="cb25-474"><a href="#cb25-474" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="at">data =</span> d_m2[<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>,<span class="dv">3</span>, <span class="dv">10</span>, <span class="dv">13</span>, <span class="dv">16</span>, <span class="dv">20</span>),], <span class="fu">aes</span>(<span class="at">label =</span> teams),</span>
+<span id="cb25-475"><a href="#cb25-475" aria-hidden="true" tabindex="-1"></a>            <span class="at">hjust =</span> <span class="sc">-</span><span class="fl">0.15</span>, <span class="at">vjust =</span> <span class="fl">0.15</span>)<span class="sc">+</span></span>
+<span id="cb25-476"><a href="#cb25-476" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="sc">-</span><span class="fl">0.75</span>, <span class="sc">-</span><span class="fl">0.05</span>, <span class="at">label =</span> <span class="fu">expression</span>(mu[def]))<span class="sc">+</span></span>
+<span id="cb25-477"><a href="#cb25-477" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="fl">0.15</span>, <span class="fl">0.75</span>, <span class="at">label =</span> <span class="fu">expression</span>(mu[att]))<span class="sc">+</span></span>
+<span id="cb25-478"><a href="#cb25-478" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb25-479"><a href="#cb25-479" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"Attack Strength"</span>, <span class="at">y =</span> <span class="st">"Defence Strength"</span>,</span>
+<span id="cb25-480"><a href="#cb25-480" aria-hidden="true" tabindex="-1"></a>       <span class="at">title =</span> <span class="st">"PL 2023/24 Teams Att and Def Strengths"</span>,</span>
+<span id="cb25-481"><a href="#cb25-481" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Hierarchical Model"</span>)<span class="sc">+</span></span>
+<span id="cb25-482"><a href="#cb25-482" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.8</span>, <span class="fl">0.8</span>), <span class="at">y =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.8</span>, <span class="fl">0.8</span>))<span class="sc">+</span></span>
+<span id="cb25-483"><a href="#cb25-483" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span>
+<span id="cb25-484"><a href="#cb25-484" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-485"><a href="#cb25-485" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-486"><a href="#cb25-486" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-487"><a href="#cb25-487" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb25-488"><a href="#cb25-488" aria-hidden="true" tabindex="-1"></a>The figure plots the relative attack and defence strengths of teams in the Premier League using a hierarchical model. While we are going to see a comparison between complete pooling estimates and hierarchical model estimates, we can identity. one major difference in that the estimates are much more bunched together. Let's see what this model predicts in terms of result probabilities.</span>
-<span id="cb25-489"><a href="#cb25-489" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-490"><a href="#cb25-490" aria-hidden="true" tabindex="-1"></a>Predictions:</span>
-<span id="cb25-491"><a href="#cb25-491" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-494"><a href="#cb25-494" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb25-495"><a href="#cb25-495" aria-hidden="true" tabindex="-1"></a>m2post <span class="ot">&lt;-</span> m2fit<span class="sc">$</span><span class="fu">draws</span>(<span class="at">variables =</span> <span class="fu">c</span>(<span class="st">"s1p"</span>, <span class="st">"s2p"</span>), <span class="at">format =</span> <span class="st">"df"</span>)</span>
-<span id="cb25-496"><a href="#cb25-496" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-497"><a href="#cb25-497" aria-hidden="true" tabindex="-1"></a>pred2 <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="cf">function</span>(x) <span class="fu">result_prob</span>(m2post, x)) <span class="sc">%&gt;%</span> </span>
-<span id="cb25-498"><a href="#cb25-498" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>() <span class="sc">%&gt;%</span> <span class="fu">t</span>()</span>
-<span id="cb25-499"><a href="#cb25-499" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pred2) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"hw2"</span>, <span class="st">"d2"</span>, <span class="st">"aw2"</span>)</span>
-<span id="cb25-500"><a href="#cb25-500" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n =</span> <span class="dv">10</span>), pred2)</span>
-<span id="cb25-501"><a href="#cb25-501" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-502"><a href="#cb25-502" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb25-503"><a href="#cb25-503" aria-hidden="true" tabindex="-1"></a>While the hit-rate for the hierarchical model is the same as the complete pooling model (8 out 10 correct), we see that hierarchical model predictions are much more conservative. For example, while the normal model gave $82\%$ chance that Manchester City win their last home game, the multilevel model predicts it at $77\%$.</span>
+<span id="cb25-486"><a href="#cb25-486" aria-hidden="true" tabindex="-1"></a>plot_multilevel</span>
+<span id="cb25-487"><a href="#cb25-487" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-488"><a href="#cb25-488" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-489"><a href="#cb25-489" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-490"><a href="#cb25-490" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-491"><a href="#cb25-491" aria-hidden="true" tabindex="-1"></a>The figure plots the relative attack and defence strengths of teams in the Premier League using a hierarchical model. While we are going to see a comparison between complete pooling estimates and hierarchical model estimates, we can identity. one major difference in that the estimates are much more bunched together. Let's see what this model predicts in terms of result probabilities.</span>
+<span id="cb25-492"><a href="#cb25-492" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-493"><a href="#cb25-493" aria-hidden="true" tabindex="-1"></a>Predictions:</span>
+<span id="cb25-494"><a href="#cb25-494" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-497"><a href="#cb25-497" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-498"><a href="#cb25-498" aria-hidden="true" tabindex="-1"></a>m2post <span class="ot">&lt;-</span> m2fit<span class="sc">$</span><span class="fu">draws</span>(<span class="at">variables =</span> <span class="fu">c</span>(<span class="st">"s1p"</span>, <span class="st">"s2p"</span>), <span class="at">format =</span> <span class="st">"df"</span>)</span>
+<span id="cb25-499"><a href="#cb25-499" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-500"><a href="#cb25-500" aria-hidden="true" tabindex="-1"></a>pred2 <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="cf">function</span>(x) <span class="fu">result_prob</span>(m2post, x)) <span class="sc">%&gt;%</span> </span>
+<span id="cb25-501"><a href="#cb25-501" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>() <span class="sc">%&gt;%</span> <span class="fu">t</span>()</span>
+<span id="cb25-502"><a href="#cb25-502" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pred2) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"hw2"</span>, <span class="st">"d2"</span>, <span class="st">"aw2"</span>)</span>
+<span id="cb25-503"><a href="#cb25-503" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n =</span> <span class="dv">10</span>), pred2) <span class="sc">%&gt;%</span> <span class="fu">as_tibble</span>()</span>
 <span id="cb25-504"><a href="#cb25-504" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-505"><a href="#cb25-505" aria-hidden="true" tabindex="-1"></a><span class="fu">## Comparison</span></span>
+<span id="cb25-505"><a href="#cb25-505" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb25-506"><a href="#cb25-506" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-507"><a href="#cb25-507" aria-hidden="true" tabindex="-1"></a>The figure shows the most important difference between a complete-pooling and hierarchical model, that the hierarchical model is sceptical of relatively extreme estimates and tend to shrink towards the mean. As is shown by the figure, the red points are much closer to $\mu_att$ and $\mu_def$ than their black (complete pooling counterparts).</span>
+<span id="cb25-507"><a href="#cb25-507" aria-hidden="true" tabindex="-1"></a>While the hit-rate for the hierarchical model is the same as the complete pooling model (8 out 10 correct), we see that hierarchical model predictions are much more conservative. For example, while the normal model gave $82\%$ chance that Manchester City win their last home game, the multilevel model predicts it at $77\%$.</span>
 <span id="cb25-508"><a href="#cb25-508" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-511"><a href="#cb25-511" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb25-512"><a href="#cb25-512" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
-<span id="cb25-513"><a href="#cb25-513" aria-hidden="true" tabindex="-1"></a>  <span class="at">att =</span> <span class="fu">c</span>(d_m1<span class="sc">$</span>att1, d_m2<span class="sc">$</span>att2),</span>
-<span id="cb25-514"><a href="#cb25-514" aria-hidden="true" tabindex="-1"></a>  <span class="at">def =</span> <span class="fu">c</span>(d_m1<span class="sc">$</span>def1, d_m2<span class="sc">$</span>def2),</span>
-<span id="cb25-515"><a href="#cb25-515" aria-hidden="true" tabindex="-1"></a>  <span class="at">Model =</span> <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Normal"</span>,<span class="st">"Multilevel"</span>), <span class="at">each =</span> <span class="dv">20</span>)),</span>
-<span id="cb25-516"><a href="#cb25-516" aria-hidden="true" tabindex="-1"></a>  <span class="at">team =</span> <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">20</span>), <span class="dv">2</span>))</span>
-<span id="cb25-517"><a href="#cb25-517" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> att, <span class="at">y =</span> def))<span class="sc">+</span></span>
-<span id="cb25-518"><a href="#cb25-518" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">color =</span> Model), <span class="at">size =</span> <span class="dv">3</span>)<span class="sc">+</span></span>
-<span id="cb25-519"><a href="#cb25-519" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(</span>
-<span id="cb25-520"><a href="#cb25-520" aria-hidden="true" tabindex="-1"></a>    <span class="at">values =</span> <span class="fu">c</span>(</span>
-<span id="cb25-521"><a href="#cb25-521" aria-hidden="true" tabindex="-1"></a>      <span class="st">"Normal"</span> <span class="ot">=</span> <span class="st">"black"</span>,</span>
-<span id="cb25-522"><a href="#cb25-522" aria-hidden="true" tabindex="-1"></a>      <span class="st">"Multilevel"</span> <span class="ot">=</span> <span class="st">"red"</span></span>
-<span id="cb25-523"><a href="#cb25-523" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb25-524"><a href="#cb25-524" aria-hidden="true" tabindex="-1"></a>  )<span class="sc">+</span></span>
-<span id="cb25-525"><a href="#cb25-525" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">group =</span> team), <span class="at">linewidth =</span> <span class="fl">0.6</span>)<span class="sc">+</span></span>
-<span id="cb25-526"><a href="#cb25-526" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(m2ad<span class="sc">$</span>att_bar),</span>
-<span id="cb25-527"><a href="#cb25-527" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
-<span id="cb25-528"><a href="#cb25-528" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fu">mean</span>(m2ad<span class="sc">$</span>def_bar), <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
-<span id="cb25-529"><a href="#cb25-529" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="sc">-</span><span class="fl">0.5</span>, <span class="sc">-</span><span class="fl">0.05</span>, <span class="at">label =</span> <span class="fu">expression</span>(mu[def]))<span class="sc">+</span></span>
-<span id="cb25-530"><a href="#cb25-530" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="fl">0.15</span>, <span class="fl">0.75</span>, <span class="at">label =</span> <span class="fu">expression</span>(mu[att]))<span class="sc">+</span></span>
-<span id="cb25-531"><a href="#cb25-531" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Comparison between complete pooling and multilevel model"</span>)<span class="sc">+</span></span>
-<span id="cb25-532"><a href="#cb25-532" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span>
-<span id="cb25-533"><a href="#cb25-533" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-534"><a href="#cb25-534" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-535"><a href="#cb25-535" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-536"><a href="#cb25-536" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-537"><a href="#cb25-537" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-509"><a href="#cb25-509" aria-hidden="true" tabindex="-1"></a><span class="fu">## Comparison</span></span>
+<span id="cb25-510"><a href="#cb25-510" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-511"><a href="#cb25-511" aria-hidden="true" tabindex="-1"></a>The figure shows the most important difference between a complete-pooling and hierarchical model, that the hierarchical model is sceptical of relatively extreme estimates and tend to shrink towards the mean. As is shown by the figure, the red points are much closer to $\mu_att$ and $\mu_def$ than their black (complete pooling counterparts).</span>
+<span id="cb25-512"><a href="#cb25-512" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-515"><a href="#cb25-515" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-516"><a href="#cb25-516" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(</span>
+<span id="cb25-517"><a href="#cb25-517" aria-hidden="true" tabindex="-1"></a>  <span class="at">att =</span> <span class="fu">c</span>(d_m1<span class="sc">$</span>att1, d_m2<span class="sc">$</span>att2),</span>
+<span id="cb25-518"><a href="#cb25-518" aria-hidden="true" tabindex="-1"></a>  <span class="at">def =</span> <span class="fu">c</span>(d_m1<span class="sc">$</span>def1, d_m2<span class="sc">$</span>def2),</span>
+<span id="cb25-519"><a href="#cb25-519" aria-hidden="true" tabindex="-1"></a>  <span class="at">Model =</span> <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Normal"</span>,<span class="st">"Multilevel"</span>), <span class="at">each =</span> <span class="dv">20</span>)),</span>
+<span id="cb25-520"><a href="#cb25-520" aria-hidden="true" tabindex="-1"></a>  <span class="at">team =</span> <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="fu">seq</span>(<span class="dv">1</span>, <span class="dv">20</span>), <span class="dv">2</span>))</span>
+<span id="cb25-521"><a href="#cb25-521" aria-hidden="true" tabindex="-1"></a>) <span class="sc">%&gt;%</span> <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> att, <span class="at">y =</span> def))<span class="sc">+</span></span>
+<span id="cb25-522"><a href="#cb25-522" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">color =</span> Model), <span class="at">size =</span> <span class="dv">3</span>)<span class="sc">+</span></span>
+<span id="cb25-523"><a href="#cb25-523" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(</span>
+<span id="cb25-524"><a href="#cb25-524" aria-hidden="true" tabindex="-1"></a>    <span class="at">values =</span> <span class="fu">c</span>(</span>
+<span id="cb25-525"><a href="#cb25-525" aria-hidden="true" tabindex="-1"></a>      <span class="st">"Normal"</span> <span class="ot">=</span> <span class="st">"black"</span>,</span>
+<span id="cb25-526"><a href="#cb25-526" aria-hidden="true" tabindex="-1"></a>      <span class="st">"Multilevel"</span> <span class="ot">=</span> <span class="st">"red"</span></span>
+<span id="cb25-527"><a href="#cb25-527" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb25-528"><a href="#cb25-528" aria-hidden="true" tabindex="-1"></a>  )<span class="sc">+</span></span>
+<span id="cb25-529"><a href="#cb25-529" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">group =</span> team), <span class="at">linewidth =</span> <span class="fl">0.6</span>)<span class="sc">+</span></span>
+<span id="cb25-530"><a href="#cb25-530" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">mean</span>(m2ad<span class="sc">$</span>att_bar),</span>
+<span id="cb25-531"><a href="#cb25-531" aria-hidden="true" tabindex="-1"></a>             <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
+<span id="cb25-532"><a href="#cb25-532" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fu">mean</span>(m2ad<span class="sc">$</span>def_bar), <span class="at">linetype =</span> <span class="dv">2</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>)<span class="sc">+</span></span>
+<span id="cb25-533"><a href="#cb25-533" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="sc">-</span><span class="fl">0.5</span>, <span class="sc">-</span><span class="fl">0.05</span>, <span class="at">label =</span> <span class="fu">expression</span>(mu[def]))<span class="sc">+</span></span>
+<span id="cb25-534"><a href="#cb25-534" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="st">"text"</span>, <span class="fl">0.15</span>, <span class="fl">0.75</span>, <span class="at">label =</span> <span class="fu">expression</span>(mu[att]))<span class="sc">+</span></span>
+<span id="cb25-535"><a href="#cb25-535" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Comparison between complete pooling and multilevel model"</span>)<span class="sc">+</span></span>
+<span id="cb25-536"><a href="#cb25-536" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span>
+<span id="cb25-537"><a href="#cb25-537" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-538"><a href="#cb25-538" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb25-539"><a href="#cb25-539" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-540"><a href="#cb25-540" aria-hidden="true" tabindex="-1"></a>Prediction Comparison:</span>
-<span id="cb25-541"><a href="#cb25-541" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-542"><a href="#cb25-542" aria-hidden="true" tabindex="-1"></a>While the hit-rates for correct predictions were the same, a point to be noted is that the hierarchical model had Crystal Palace on much higher likelihood of win $34.7\%$ than the normal model $32\%$. In the second part of this blog, we will look at and compare the out-of-sample deviance between the two models, especially if the sample size is small.</span>
-<span id="cb25-543"><a href="#cb25-543" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-546"><a href="#cb25-546" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb25-547"><a href="#cb25-547" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n =</span> <span class="dv">10</span>),</span>
-<span id="cb25-548"><a href="#cb25-548" aria-hidden="true" tabindex="-1"></a>      pred,</span>
-<span id="cb25-549"><a href="#cb25-549" aria-hidden="true" tabindex="-1"></a>      pred2) <span class="sc">%&gt;%</span> <span class="fu">as_tibble</span>()</span>
-<span id="cb25-550"><a href="#cb25-550" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-540"><a href="#cb25-540" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-541"><a href="#cb25-541" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb25-542"><a href="#cb25-542" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-543"><a href="#cb25-543" aria-hidden="true" tabindex="-1"></a>Prediction Comparison:</span>
+<span id="cb25-544"><a href="#cb25-544" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-545"><a href="#cb25-545" aria-hidden="true" tabindex="-1"></a>While the hit-rates for correct predictions were the same, a point to be noted is that the hierarchical model had Crystal Palace on much higher likelihood of win $34.7\%$ than the normal model $32\%$. In the second part of this blog, we will look at and compare the out-of-sample deviance between the two models, especially if the sample size is small.</span>
+<span id="cb25-546"><a href="#cb25-546" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-549"><a href="#cb25-549" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb25-550"><a href="#cb25-550" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(data <span class="sc">%&gt;%</span> <span class="fu">tail</span>(<span class="at">n =</span> <span class="dv">10</span>),</span>
+<span id="cb25-551"><a href="#cb25-551" aria-hidden="true" tabindex="-1"></a>      pred,</span>
+<span id="cb25-552"><a href="#cb25-552" aria-hidden="true" tabindex="-1"></a>      pred2) <span class="sc">%&gt;%</span> <span class="fu">as_tibble</span>()</span>
+<span id="cb25-553"><a href="#cb25-553" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 </code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

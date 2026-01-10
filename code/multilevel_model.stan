@@ -61,10 +61,7 @@ generated quantities {
   
   s1p = poisson_rng(theta1p);
   s2p = poisson_rng(theta2p);
-  
-  
-  // TODO generate a log-likelihood for WAIC loo-PSIS.
-  
+  // TODO generate a log-likelihood for WAIC loo-PSIS
   for (i in 1:ng) {
     log_lik[i] = poisson_lpmf(s1[i] | theta1[i]) + poisson_lpmf(s2[i] | theta2[i]);
   }

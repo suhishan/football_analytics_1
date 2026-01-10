@@ -329,10 +329,10 @@ Can a hierarchical model do better?
 
 ## Model 2: Hierarchical Model
 
-In a hierarchical (or multilevel model), we assume that our attack and defence strength parameters come from  population attack and defence strength i.e. instead of assuming that each team's attack and defence strengths being modelled and estimated independent of other teams, the parameters are now draws from a population parameter. For e.g. $att[1..20]$ takes as its prior $att_bar$ as mean and $att_tau$ as standard deviation. The benefit of using such a hierarchical model is that it aids in minimizing over-fitting, whereby, if a team once scored 8 goals in match, the model is more sceptical than the complete-pooling model. Multilevel model shrinks extreme attack and defence strengths towards the mean. This is reasonable given the unpredictability of football results, whereby even in a game between a high-ranked team and a low-ranked team, the saying goes that 'anything can happen in one football game'. Since it is our goal to predict the final gameweek, multilevel model incorporates our own sense of unpredictability and scepticism rather well. Multi-level models also squeeze a lot more information out of the data.
-
+In a hierarchical (or multilevel model), we assume that our attack and defence strength parameters come from population attack and defence strength i.e. instead of assuming that each team's attack and defence strengths being modelled and estimated independent of other teams, the parameters are now draws from a population parameter. For e.g. $att[1..20]$ takes as its prior $att_bar$ as mean and $att_tau$ as standard deviation. The benefit of using such a hierarchical model is that it aids in minimizing over-fitting, whereby, if a team once scored 8 goals in match, the model is more sceptical than the complete-pooling model. Multilevel model shrinks extreme attack and defence strengths towards the mean. This is reasonable given the unpredictability of football results, whereby even in a game between a high-ranked team and a low-ranked team, the saying goes that 'anything can happen in one football game'. Since it is our goal to predict the final gameweek, multilevel model incorporates our own sense of unpredictability and scepticism rather well. Multi-level models also squeeze a lot more information out of the data.
 
 The stan code:
+
 ``` stan
 {stan}
 #| eval: false
@@ -409,7 +409,9 @@ generated quantities {
   
 }
 ```
+
 Fit the model:
+
 ```{r}
 #| warning: false
 #| output: false
@@ -460,6 +462,7 @@ plot_multilevel
 
 
 ```
+
 The figure plots the relative attack and defence strengths of teams in the Premier League using a hierarchical model. While we are going to see a comparison between complete pooling estimates and hierarchical model estimates, we can identity. one major difference in that the estimates are much more bunched together. Let's see what this model predicts in terms of result probabilities.
 
 Predictions:
@@ -473,6 +476,7 @@ colnames(pred2) <- c("hw2", "d2", "aw2")
 cbind(data %>% tail(n = 10), pred2) %>% as_tibble()
 
 ```
+
 While the hit-rate for the hierarchical model is the same as the complete pooling model (8 out 10 correct), we see that hierarchical model predictions are much more conservative. For example, while the normal model gave $82\%$ chance that Manchester City win their last home game, the multilevel model predicts it at $77\%$.
 
 ## Comparison
@@ -506,7 +510,6 @@ tibble(
 
 
 ```
-
 
 Prediction Comparison:
 
