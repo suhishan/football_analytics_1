@@ -6,7 +6,6 @@ data {
   array[N] int<lower=0> s2;
   array[N] int<lower=0> ht;
   array[N] int<lower=0> at;
-  vector<lower=0>[N] hg;
   array[Np] int<lower=0> htp;
   array[Np] int<lower=0> atp;
 }
@@ -24,11 +23,11 @@ transformed parameters {
   vector[N] theta_1;
   vector[N] theta_2;
   vector[N] theta_3;
-  for (i in 1:N){
-  theta_1[i] = exp(mu + (home * hg[i]) + att[ht[i]] - def[at[i]]);
-  theta_2[i] = exp(mu + att[at[i]] - def[ht[i]]);
-  theta_3[i] = exp(rho[ht[i]] + rho[at[i]]);
-  }
+  
+  theta_1 = exp(home + att[ht] - def[at]);
+  theta_2= exp(att[at] - def[ht]);
+  theta_3= exp(rho[ht] + rho[at]);
+
   
 }
 
@@ -54,11 +53,11 @@ generated quantities {
   array[Np] int s2p; 
   vector[N] log_lik;
   
-  for (i in 1:Np){
-  theta1p[i] = exp(mu + (home * hg[i]) + att[ht[i]] - def[at[i]]);
-  theta2p[i] = exp(mu + att[at[i]] - def[ht[i]]);
-  theta3p[i] = exp(rho[ht[i]] + rho[at[i]]);
-  }
+  
+  theta1p = exp(home  + att[ht] - def[at]);
+  theta2p = exp(att[at] - def[ht]);
+  theta3p = exp(rho[ht] + rho[at]);
+  
   
   s1p = poisson_rng(theta1p + theta3p);
   s2p = poisson_rng(theta2p + theta3p);

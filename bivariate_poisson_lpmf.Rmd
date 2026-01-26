@@ -1,0 +1,126 @@
+## This document outlines the various function calls for generating bivariate poisson log probability mass function 
+
+### Function 1: Brute force 
+
+$$
+F_{(\theta_1, \theta_2, \theta_3)}(x, y) = 
+exp(-(\theta_1 + \theta_2 + \theta_3)) 
+\frac{\theta_1^x}{x!}  \frac{\theta_2^y}{y!} 
+\sum^{min(x, y)}_{i = 0}i!{x \choose i}{y \choose i}
+(\frac{\theta_3}{\theta_1 \theta_2})^i
+$$
+
+```{r}
+bivar_poisson_lpmf <- function(x, y, lambda) {
+  l_1  <- lambda[1] ;l_2 <- lambda[2]; l_3 <- lambda[3]
+  mn <- min(x, y)
+  con <- -l_1 - l_2 - l_3 + (x * log(l_1)) + (y * log(l_2)) - lfactorial(x) - lfactorial(y) 
+
+  f <- numeric(length(mn) + 1)
+  for (k in 0:mn) {
+    f[k+1] <- choose(x, k)  * choose(y, k) * factorial(k) * (l_3/ (l_1 * l_2)) ^ k
+  }
+
+  f <- log(sum(f))
+  a <- con + f
+
+  return (a)
+}
+
+bivar_poisson_lpmf(1, 2, 1, 2, 3)
+```
+
+
+## Function 2: Brute force using underlying independent poisson distributions
+
+$$
+F_{(\theta_1, \theta_2, \theta_3)}(x, y) = 
+\sum^{min(x, y)}_{i = 0} (e^{-\theta_3}\frac{\theta_3^i}{i!})
+(e^{-\theta_1}\frac{\theta_1^{x-i}}{(x-i)!})
+(e^{-\theta_2}\frac{\theta_2^{y-i}}{(y-i)!})
+$$
+
+```{r}
+# A different way to write the same thing. (A cleaner and simpler way)
+
+bivar_poisson_lpmf_2 <- function(x,y, lambda) {
+  l_1  <- lambda[1] ;l_2 <- lambda[2]; l_3 <- lambda[3]
+  mn  <- min(x, y)
+  f <- numeric(length(mn) + 1)
+
+  for (k in 0:mn) {
+    f[k + 1] <- dpois(k, l_3) * dpois(x-k, l_1) * dpois(y-k, l_2)
+  }
+  a <- log(sum(f))
+  return (a)
+}
+
+bivar_poisson_lpmf_2(1, 2, c(1, 2, 3))
+```
+
+
+## Function 3: Optimized way through iteration and numerically stable for Stan.
+
+The third function relies on factoring out factorials.
+
+$$
+\begin{equation}
+F_{(\theta_1, \theta_2, \theta_3)}(x, y) = 
+\exp(-(\theta_1 + \theta_2 + \theta_3))
+\sum^{min(x, y)}_{i = 0} \frac{\theta_3^i}{i!}
+\frac{\theta_1^{x-i}}{(x-i)!}
+\frac{\theta_2^{y-i}}{(y-i)!}
+\end{equation}
+$$
+
+If we only take the what we need to sum,
+
+$$
+\begin{equation}
+\begin{aligned}
+S_i =  \frac{\theta_3^i}{i!}
+\frac{\theta_1^{x-i}}{(x-i)!}
+\frac{\theta_2^{y-i}}{(y-i)!}
+\\
+S_{i-1} = \frac{\theta_3^{i-1}}{{i-1}!}
+\frac{\theta_1^{x-i + 1}}{(x-i + 1)!}
+\frac{\theta_2^{y-i + 1}}{(y-i + 1)!} \\
+
+\frac{S_i}{S_{i-1}} = \frac{\theta_3}{\theta_1 \theta_2}
+\frac{(x-i + 1) (y - i + 1)}{i}\\
+\end{aligned}
+\end{equation}
+$$
+
+If we take the log of the third expression:
+
+$$
+log(S_i) = log(S_{i - 1}) + log(x -i + 1) + log (y -i + 1) -log(i) + log(\frac{\theta_3}{\theta_1 \theta_2})
+$$
+
+```{r}
+bivar_poisson_lpmf_3 <- function(x, y, lambda) {
+    l_1 <- log(lambda[1]); l_2 <- log(lambda[2]); l_3 <- log(lambda[3]);
+    mn <- min(x, y)
+
+    f <- numeric()
+    # when l_3 is 0
+    f[1] <- dpois(x, exp(l_1), log = TRUE) + dpois(y, exp(l_2), log = TRUE) -
+        exp(l_3) # log(exp(-exp(l_3)))
+    if (mn > 0) {
+        cons <- -l_1 - l_2 + l_3
+        for (i in 1:mn) {
+            f[i+1] <- f[i] + log(x-i+1) + log(y-i+1) + cons - log(i)
+        }
+    }
+    a <- log(sum(exp(f)))
+    return(a)
+}
+```
+
+
+Let's check the runtime for all three functions.
+
+```{r}
+
+```

@@ -1,6 +1,22 @@
 # Generative model.
+# for every home team,
+  # pair with every other team except itself. 
+  # 20 * 19 = 380
 
-tibble()
+
+df <- tibble(
+  HomeTeam = 1:20,
+) |> crossing(AwayTeam = 1:20) |> 
+  filter(HomeTeam != AwayTeam) |> 
+  mutate(gameweek = rep(1:38, times = 10)) |> 
+  sample_frac(gameweek, size = 1, replace = FALSE) |> 
+  arrange(gameweek)
+View(df)
+
+
+
+
+
 
 
 
@@ -11,5 +27,113 @@ tibble(
 ) %>% bind_cols(data %>% tail(n=10))
 
 
+a <- matrix(nrow = 12, ncol = 2)
 
 
+
+
+
+
+# ------ Sample example of fixture list ------ #
+
+d <- matrix(data = 0, nrow = 0, ncol = 2)
+colnames(d) <- c("HomeTeam", "AwayTeam")
+
+store_h <- c(1)
+store_a <- c(2)
+d <- rbind(d, c(store_h, store_a))
+for (i in 1:11) {
+  h <- sample(1:4, 1)
+  a <- sample(1:4, 1)
+  d <- rbind(d, c(h, a))
+}
+
+gameweek_1 <- matrix(sample(1:20, size = 20, replace = FALSE), 10, 2)
+
+overall <- matrix(data = 0, nrow = 0, ncol = 2)
+overall <- rbind(overall, gameweek_1)
+
+
+# ROugh work to understand Bivariate Poisson distribution
+
+sample_d <- rbp(380, lambda = c(1.2, 1, 0.2))
+cov(sample_d[,1], sample_d[,2])
+
+x <- 1; y <- 1; l_1 <- 1; l_2 <- 2; l_3 <- 3
+mn <- min(x, y)
+  con <- -l_1 - l_2 - l_3 + (x * log(l_1)) + (y * log(l_2)) - lfactorial(x) - lfactorial(y) 
+
+  f <- numeric(length(mn) + 1)
+  for (k in 0:mn) {
+    f[k+1] <- choose(x, k)  * choose(y, k) * factorial(k) * (l_3/ (l_1 * l_2))^k
+  }
+
+  f <- log(sum(f))
+
+  a <- con + f;a
+
+
+
+# Optimized algorithm
+
+lambda<- c(1, 2, 3)
+x<-1; y<- 2
+l_1 <- log(lambda[1]); l_2 <- log(lambda[2]); l_3 <- log(lambda[3]);
+    mn <- min(x, y)
+
+    f <- numeric()
+    # when l_3 is 0
+    f[1] <- dpois(x, exp(l_1), log = TRUE) + dpois(y, exp(l_2), log = TRUE) -
+        exp(l_3) # log(exp(-exp(l_3)))
+    if (mn > 0) {
+        cons <- -l_1 - l_2 + l_3
+        for (i in 1:mn) {
+            f[i+1] <- f[i] + log(x-i+1) + log(y-i+1) + cons - log(i)
+        }
+    }
+    a <- sum(exp(f))
+
+
+
+#Trying sapply functions for likelihood.
+
+d <- data.frame(rbp(100, lambda = c(1, 2, 1)))
+colnames(d) <- c("x", "y")
+
+l <- tibble(l_1 = seq(0.1, 4, by = .1)) |> expand_grid(l_2 = seq(0.1, 4, .1)) |> 
+  expand_grid(l_3 = seq(0.1, 4, .1))
+
+
+lik_calc <- function(data, l_1, l_2, l_3, func) {
+
+  a <- sum(pmap_dbl(data, func, lambda = c(l_1, l_2, l_3)))
+  return(a)
+}
+
+
+l <- list(
+  l_1 = l$l_1, l_2 = l$l_2, l_3 = l$l_3,
+)
+a <- list(x = d$x, y = d$y)
+
+#
+# 
+# sum(pmap_dbl(a, bivar_poisson_lpmf, lambda = c(1, 2, 3)))
+library(tictoc)
+tic("Model1")
+log_lik <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf)
+toc()
+
+tic("Model2")
+log_lik_2 <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf_2)
+toc()
+
+tic("Model 3")
+log_lik_3 <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf_3)
+toc()
+
+      
+
+log_lik <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf_3)
+
+cbind(log_lik, l)[which(log_lik == max(log_lik)),]
