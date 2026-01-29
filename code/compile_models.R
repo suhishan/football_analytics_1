@@ -100,6 +100,7 @@ pred <- sapply(1:10, function(x) result_prob(m1post, x)) %>%
   
 
 #--- Compile the hierarchical Model --- #
+
 m2 <- cmdstan_model("code/multilevel_model.stan")
 m2fit <- m2$sample(data = dat, chains = 8, parallel_chains = 8,
                    refresh = 500)
@@ -321,55 +322,27 @@ a |> pivot_longer(c(s1, s2)) |>
 
 # Bivariate Poisson Model:
 
-m_bivar <- cmdstan_model("code/bivariate_poisson.stan")
-m_bivar_fit <- m_bivar$sample(data = dat_corr, chains = 4, parallel_chains = 8, 
-refresh = 500 )
-
-# Plot the attack and defense paramters from bivariate poisson model.
-
-m_bivar_ad <- m_bivar_fit$draws(variables = 
-  c("att", "def"), format = "df") %>%
-  data.frame()
-
-d_bivar <- tibble(
-  att = apply(m_bivar_ad[1:20], 2, mean),
-  att_lc = apply(m_bivar_ad[1:20], 2, function(x) quantile(x, probs = 0.03)),
-  att_uc = apply(m_bivar_ad[1:20], 2, function(x) quantile(x, probs = 0.97)),
-  def = apply(m_bivar_ad[21:40], 2, mean),
-  def_lc = apply(m_bivar_ad[21:40], 2, function(x) quantile(x, probs = 0.03)),
-  def_uc = apply(m_bivar_ad[21:40], 2, function(x) quantile(x, probs = 0.97)),
-  teams = teams
+dat_simple_bivar <- list(
+  x = data$s1,
+  y = data$s2, 
+  n = length(data$s1)
 )
 
-plot_bivar <- d_bivar %>% ggplot(aes(x = att, y = def))+
-  geom_point(shape = 1, size = 3)+
-  geom_errorbar(aes(xmin = att_lc, xmax = att_uc), alpha = 0.1)+
-  geom_errorbar(aes(ymin = def_lc, ymax = def_uc), alpha = 0.1)+
-  #geom_vline(xintercept = mean(m_corr_ad$att_bar),
-             #linetype = 2, alpha = 0.5)+
-  #geom_hline(yintercept = mean(m_corr_ad$def_bar), linetype = 2, alpha = 0.5)+
-  geom_text(data = d_bivar[c(1, 2,3, 10, 13, 16, 20),], aes(label = teams),
-            hjust = -0.15, vjust = 0.15)+
-  labs(x = "Attack Strength", y = "Defence Strength",
-       title = "PL 2023/24 Teams Att and Def Strengths",
-       subtitle = "Bivariate Poisson Model (94% credible intervals)")+
-    coord_cartesian(xlim = c(-0.8, 0.8), y = c(-0.8, 0.8))+
+model_bivar_simple <- cmdstan_model("code/bivariate_poisson_simple.stan")
+model_bivar_simple_fit <- model_bivar_simple$sample(
+  data = dat_simple_bivar,
+  chains = 4, parallel_chains = 4, refresh = 500
+)
+
+# Simple bivariate model, posterior of l3, the covariance variable.
+
+model_bivar_simple_fit$draws(variables = c("l3"), format = "df") |> 
+  ggplot(aes(x = l3)) +
+  geom_histogram(color = "black", fill = "white")+
+  labs(title = "Posterior Distribution for l3",
+subtitle = "L3 is the covariance parameter in a bivariate poisson distribution") +
   theme_classic()
 
-plot_bivar
 
 
 
-# Plot the win/loss/draw for all 4 models.
-m_corr_post <- m_corr_fit$draws(variables = c("s1p","s2p"), format = "df")
-pred_corr <- sapply(1:10, function(x) result_prob(m_corr_post, x)) %>% 
-  data.frame() %>% t() 
-colnames(pred_corr) <- c("hw_c", "d_c", "aw_c")
-
-
-m_bivar_post <- m_bivar_fit$draws(variables = c("s1p", "s2p"), format = "df")
-pred_bivar <- sapply(1:10, function(x) result_prob(m_bivar_post, x)) %>% 
-  data.frame() %>% t()
-colnames(pred_bivar) <- c("hw_b", "d_b", "aw_b")
-
-cbind(data %>% tail(n = 10), pred_corr, pred_bivar) %>% as_tibble()

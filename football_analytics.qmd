@@ -16,7 +16,7 @@ execute:
 ```{r}
 #| label: load packages
 #| include: false
-packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior","qs", "patchwork")
+packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior","qs", "patchwork", "mvtnorm")
 lapply(packages, library, character.only = TRUE)
 
 ```
@@ -517,7 +517,7 @@ tibble(
 
 ```
 
-Prediction Comparison:
+## Prediction Comparison:
 
 While the hit-rates for correct predictions were the same, a point to be noted is that the hierarchical model had Crystal Palace on much higher likelihood of win $34.7\%$ than the normal model $32\%$. In the second part of this blog, we will look at and compare the out-of-sample deviance between the two models, especially if the sample size is small.
 
@@ -656,7 +656,9 @@ dat_corr <-  list(
 ```{r}
 #| warning: false
 #| message: false
+#| output: false
 #| label: cmdstan m_corr model
+
 m_corr <- cmdstan_model("code/correlated_features.stan")
 m_corr_fit <- m_corr$sample(data = dat_corr, chains = 4, parallel_chains = 4,
 refresh = 500)
@@ -669,8 +671,7 @@ Plot the attack and defense parameter picture:
 ```{r}
 #| label: plot the correlated features.
 
-m_corr_ad <- m_corr_fit$draws(variables = c("att", "def", "att_bar", "def_bar", "Rho"), format = "df") %>%
-  data.frame()
+m_corr_ad <- m_corr_fit$draws(variables = c("att", "def", "att_bar", "def_bar", "Rho", "sigma_team"), format = "df") |> data.frame()
 
 d_corr <- tibble(
   att = apply(m_corr_ad[1:20], 2, mean),
@@ -718,4 +719,77 @@ tibble(
   labs(title = "Comparison between Prior and Posterio Rho Estimates from the Correlated features model")+
   theme_bw()
 ```
+
+
+## Comparison of features: Hierarchical model and Correlated Features Model.
+
+
+```{r}
+m <- c(mean(m_corr_ad$att_bar), mean(m_corr_ad$def_bar)) # means
+cov <- with(m_corr_ad, sigma_team.1. * sigma_team.2. * Rho.1.2.)
+sigma <- matrix(c(mean(m_corr_ad$sigma_team.1.), mean(cov), mean(cov), mean(m_corr_ad$sigma_team.2.)), nrow = 2)
+
+d.grid <- expand.grid(att = seq(-0.8, 0.8, length.out = 100), 
+  def = seq(-.8, .8, length.out = 100))
+d.contour <- cbind(d.grid, p =dmvnorm(d.grid, m, sigma))
+
+tibble(
+  att = c(d_corr$att, d_m2$att2),
+  def = c(d_corr$def, d_m2$def2),
+  Model = factor(rep(c("Covarying","Multilevel"), each = 20)),
+  team = factor(rep(seq(1, 20), 2))
+) %>% ggplot(aes(x = att, y = def))+
+  geom_point(aes(color = Model), size = 3)+
+  scale_color_manual(
+    values = c(
+      "Covarying" = "purple",
+      "Multilevel" = "red"
+    )
+  )+
+  geom_line(aes(group = team), linewidth = 0.6)+
+  #geom_vline(xintercept = mean(m2ad$att_bar),
+             # linetype = 2, alpha = 0.5)+
+  #geom_hline(yintercept = mean(m2ad$def_bar), linetype = 2, alpha = 0.5)+
+  #annotate("text", -0.5, -0.05, label = expression(mu[def]))+
+  #annotate("text", 0.15, 0.75, label = expression(mu[att]))+
+  labs(title = "Comparison between multilevel model and correlated features model")+
+  geom_contour_filled(data = d.contour,aes(x = att, y = def, z = p,
+  alpha = 0.5, color = "white"), bins = 8, show.legend = FALSE)+
+  scale_fill_brewer(palette = "Reds")+
+  theme_bw()
+
+```
+
+## All three models comparison.
+
+
+```{r}
+tibble(
+  att = c(d_corr$att, d_m2$att2, d_m1$att1),
+  def = c(d_corr$def, d_m2$def2, d_m1$def1),
+  Model = factor(rep(c("Covarying","Multilevel", "No Pooling"), each = 20)),
+  team = factor(rep(seq(1, 20), 3))
+) %>% ggplot(aes(x = att, y = def))+
+  geom_point(aes(color = Model), size = 3)+
+  scale_color_manual(
+    values = c(
+      "Covarying" = "purple",
+      "Multilevel" = "red",
+      "No Pooling" = "black"
+    )
+  )+
+  geom_line(aes(group = team), linewidth = 0.6)+
+  #geom_vline(xintercept = mean(m2ad$att_bar),
+             # linetype = 2, alpha = 0.5)+
+  #geom_hline(yintercept = mean(m2ad$def_bar), linetype = 2, alpha = 0.5)+
+  #annotate("text", -0.5, -0.05, label = expression(mu[def]))+
+  #annotate("text", 0.15, 0.75, label = expression(mu[att]))+
+  labs(title = "Comparison between multilevel model and correlated features model")+
+  geom_contour_filled(data = d.contour,aes(x = att, y = def, z = p,
+  alpha = 0.5, color = "white"), bins = 8, show.legend = FALSE)+
+  scale_fill_brewer(palette = "Reds")+
+  theme_bw()
+
+```
+
 

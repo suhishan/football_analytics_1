@@ -105,7 +105,6 @@ l <- tibble(l_1 = seq(0.1, 4, by = .1)) |> expand_grid(l_2 = seq(0.1, 4, .1)) |>
 
 
 lik_calc <- function(data, l_1, l_2, l_3, func) {
-
   a <- sum(pmap_dbl(data, func, lambda = c(l_1, l_2, l_3)))
   return(a)
 }
@@ -116,9 +115,8 @@ l <- list(
 )
 a <- list(x = d$x, y = d$y)
 
-#
-# 
 # sum(pmap_dbl(a, bivar_poisson_lpmf, lambda = c(1, 2, 3)))
+
 library(tictoc)
 tic("Model1")
 log_lik <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf)
@@ -135,5 +133,49 @@ toc()
       
 
 log_lik <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf_3)
-
 cbind(log_lik, l)[which(log_lik == max(log_lik)),]
+
+
+
+
+
+
+# Understanding lambda_3 in a bivariate poisson disitrbution.
+
+ 
+bivar_rng = rbp(100, lambda = c(1.7, 1.4, 0.02))
+hg = bivar_rng[,1] ;ag = bivar_rng[,2]
+cor(hg, ag)
+
+
+
+
+# Geom Contours.
+
+library(mvtnorm)
+m <- c(.1, -.2)
+sigma <- matrix(c(0.26,.04,.04,0.245), nrow=2)
+data.grid <- expand.grid(s.1 = seq(-1, 1, length.out=100), 
+s.2 = seq(-1, 1, length.out=100))
+q.samp <- cbind(data.grid, prob = mvtnorm::dmvnorm(data.grid, mean = m, sigma = sigma))
+ggplot(q.samp, aes(x=s.1, y=s.2, z=prob)) + 
+    geom_contour_filled() +
+    coord_fixed(xlim = c(-1, 1), ylim = c(-1, 1), ratio = 1) 
+
+
+
+m <- c(mean(m_corr_ad$att_bar), mean(m_corr_ad$def_bar))
+cov <- with(m_corr_ad, sigma_team.1. * sigma_team.2. * Rho.1.2.)
+sigma <- matrix(c(mean(m_corr_ad$sigma_team.1.), mean(cov), mean(cov), mean(m_corr_ad$sigma_team.2.)), nrow = 2)
+
+d.grid <- expand.grid(att = seq(-0.8, 0.8, length.out = 100), 
+  def = seq(-.8, .8, length.out = 100))
+
+d.contour <- cbind(d.grid, p =dmvnorm(d.grid, m, sigma))
+
+ggplot()+
+  geom_contour_filled(data = d.contour,aes(x = att, y = def, z = p,
+  alpha = 0.5, color = "white"), bins = 8)+
+  scale_fill_brewer(palette = "RdPu")+
+  theme_bw()+
+  theme(legend.position = "none")

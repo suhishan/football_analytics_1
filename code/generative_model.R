@@ -1,6 +1,6 @@
 # packages.
 packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior", "qs","bivpois",
-"mvtnorm")
+"MASS")
 lapply(packages, library, character.only = TRUE)
 
 
@@ -15,8 +15,8 @@ d <- data.frame(
 
 att_bar <- 0.1
 def_bar <- -0.05
-att_sig <- 0.05
-def_sig <- 0.05
+att_sig <- 0.25
+def_sig <- 0.25
 rho <- 0.7 # better attack teams have better defenses.
 
 cov_ad <- att_sig * def_sig* rho
@@ -27,10 +27,12 @@ ad_effects <- mvrnorm(20, MU, Sigma)
 att_effect <- ad_effects[,1]
 def_effect <- ad_effects[,2]
 
+#plot the correlation between att and def effects.
+plot(att_effect, def_effect)
 
 # Simulating match scores from bivariate poisson.
 
-d$lambda_3 <- 0 # Additional 5% more goals come is game related effect on average.
+d$lambda_3 <- 0.02 # Additional 5% more goals come is game related effect on average.
 d$lambda_1 <- exp(d$home + att_effect[d$ht] - def_effect[d$at])
 d$lambda_2 <- exp(att_effect[d$at] - def_effect[d$ht])
 
@@ -68,96 +70,54 @@ d |> pivot_longer(c(s1, s2)) |>
 d |> summarize(mean(s1), mean(s2))
 
 
-# Bivariate Poisson Log Probability Mass function
+## Let's see if the bivariate Poisson complex model retrodicts the 
+## of our model.
 
-# Checking for normal distribution
-normal_pdf <- function(x, mu, s, l) {
-  if (l == TRUE) {
-    a <- log(1 / sqrt(2 * pi * s^2)) - (((x - mu)^2)/ (2 * s^2))
-  } else {
-    a <- (1 / sqrt(2 * pi * s^2) ) * exp(-(x - mu)^2 / (2 * s^2)) 
-  }
-  return (a)
-}
-
-
-bivar_poisson_lpmf <- function(x, y, l_1, l_2, l_3) {
-  mn <- min(x, y)
-  con <- -l_1 - l_2 - l_3 + (x * log(l_1)) + (y * log(l_2)) - lfactorial(x) - lfactorial(y) 
-
-  f <- numeric(length(mn) + 1)
-  for (k in 0:mn) {
-    f[k+1] <- choose(x, k)  * choose(y, k) * factorial(k) * (l_3/ (l_1 * l_2)) ^ k
-  }
-
-  f <- log(sum(f))
-  a <- con + f
-
-  return (a)
-}
-
-# A different way to write the same thing. (A cleaner and simpler way)
-
-bivar_poisson_lpmf_2 <- function(x,y, lambda) {
-  l_1  <- lambda[1] ;l_2 <- lambda[2]; l_3 <- lambda[3]
-  mn  <- min(x, y)
-  f <- numeric(length(mn) + 1)
-
-  for (k in 0:mn) {
-    f[k + 1] <- dpois(k, l_3) * dpois(x-k, l_1) * dpois(y-k, l_2)
-  }
-  a <- log(sum(f))
-  return (a)
-}
-
-# Better more efficient way
-
-bivar_poisson_lpmf_3 <- function(x, y, lambda) {
-    l_1 <- log(lambda[1]); l_2 <- log(lambda[2]); l_3 <- log(lambda[3]);
-    mn <- min(x, y)
-
-    f <- numeric()
-    # when l_3 is 0
-    f[1] <- dpois(x, exp(l_1), log = TRUE) + dpois(y, exp(l_2), log = TRUE) -
-        exp(l_3) # log(exp(-exp(l_3)))
-    if (mn > 0) {
-        cons <- -l_1 - l_2 + l_3
-        for (i in 1:mn) {
-            f[i+1] <- f[i] + log(x-i+1) + log(y-i+1) + cons - log(i)
-        }
-    }
-    a <- log(sum(exp(f)))
-    return(a)
-}
+dat_complex_bivar <-  list(
+  Nt = 20,
+  N = 370,
+  ht = d$ht[1:370],
+  at = d$at[1:370],
+  s1 = d$s1[1:370],
+  s2 = d$s2[1:370],
+  
+  # for predictions
+  Np = 10,
+  htp = ht[371:380],
+  atp = at[371:380]
+)
 
 
-# Checking if this returns values as expected.
-
-sapply(seq(0, 5), function(x) dbp(x1 = x, x2 = rep(2, 6), c(1, 2, 3)))
-sapply(seq(0, 5), function(x) bivar_poisson_lpdf_2(x = x, y = 2, c(1, 2, 3)))
-
-# Workss.
-
-
-# Calculating log-likelihood
-
-d <- data.frame(rbp(10, lambda = c(1, 2, 1)))
-colnames(d) <- c("x", "y")
-
-l <- tibble(l_1 = seq(0, 4, by = 1)) |> expand_grid(l_2 = seq(0, 4, 1)) |> 
-  expand_grid(l_3 = seq(0, 4, 1))
-
-lik_calc <- function(data, l_1, l_2, l_3, func) {
-  a <- sum(pmap_dbl(data, func, lambda = c(l_1, l_2, l_3)))
-  return(a)
-}
+model_bivar_complex <- cmdstan_model("code/bivariate_poisson_complex.stan")
+model_bivar_complex_fit <- model_bivar_complex$sample(
+  data = dat_complex_bivar,
+  chains = 4, parallel_chains = 4,
+  refresh = 500
+)
 
 
-l <- list(l_1 = l$l_1, l_2 = l$l_2, l_3 = l$l_3)
-a <- list(x = d$x, y = d$y)
+# Posterior Predictive Check:
 
-#
-# 
-# sum(pmap_dbl(a, bivar_poisson_lpmf, lambda = c(1, 2, 3)))
+model_bivar_complex_fit$draws(variables = c("att", "def"), format = "df") |> 
+  summarize(across(1:20, .fns = mean, .names = "{.col}")) |> 
+  pivot_longer(everything())  |> 
+  rename(bivar = value, x = name) |> 
+  bind_cols(att_effect = att_effect, teams = seq(1, 20, 1)) |> 
+  as_tibble() |> 
+  pivot_longer(c(bivar, att_effect)) |> 
+  rename(model = name) |> 
+  ggplot() +
+  geom_point(aes(x = teams, y = value, color = model), size = 4)+
+  scale_color_manual(
+    values = c("bivar" = "black", "att_effect" = "red")
+  )+
+  theme_classic()
 
-pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf) |> cbind(data.frame(l))
+
+
+
+# TODO [] Write and check for a simpler model.
+# TODO [] Document the difference in attack and defence params in the bivariate poisson
+# model as an explanation for crowding out of the parameter space.
+# TODO [] Have goal difference determine the lambda_3 i.e. covariance in goals. 
+
