@@ -1,7 +1,7 @@
 ---
 title: "Premier League Match Predictions using Bayesian Hierarchical Models"
 author: "Suhishan Bhandari"
-date: "December 25, 2025"
+date: "January 30, 2025"
 format:
   html: 
     code-fold: false
@@ -23,22 +23,13 @@ lapply(packages, library, character.only = TRUE)
 
 # Introduction
 
-The blog aims to estimate every Premier League team's attack and defence strengths using their match scores from $37$ gameweeks (from the 2023/24 Premier League season). Using these strength estimates, I then predict the results of the 38th gameweek.
+The blog aims to estimate every Premier League team's attack and defence strengths using their match scores from $37$ gameweeks (from the 2023/24 Premier League season). Three different but related models are used to estimate these features. Then, using the strength estimates from these models, I then show preliminary prediction results for the 38th gameweek in terms of win/draw/loss probabilities.
 
-# Model
 
-$$
-\begin{align}
-s1 \sim poisson(\theta_1) \\
-s2 \sim poisson(\theta_2) \\
-\theta_1 = exp(home + att[ht]-def[at])\\
-\theta_2 = exp(att[at] - def[ht])
-\end{align}
-$$
-
-$s1$ and $s2$ are home and away scores respectively for a given match, which are assumed to be Poisson processes with their respective $\theta$. Scores are dependent on whether the team plays at home, and the attack and defence strengths of the home team ($ht$) and the away team($at$).
+# Models
 
 ## Data
+The data used is parsimonious by design. We have information on the names of home and away teams and their respective scores for each of the 380 matches played in Premier League Season 2023/24.
 
 ```{r}
 #| include: false
@@ -75,45 +66,28 @@ data = data %>% mutate(
 
 ```
 
-In accordance with the mathematical model above, the data contains information on home and away team scores. Later, for inferential purposes, team names are indexed from $i = 1...20$.
-
 ```{r}
 #| label: See the first 6 rows of data.
 head(data)
 ```
 
-```{r}
-#| label: Generate data list for cmdstanr
 
-teams = unique(data$Home) # Team names
-ng = nrow(data) # number of games
-nt = length(unique(data$Home)) # number of teams
-ht = unlist(sapply(1:ng, function(g) which(teams == data$Home[g]))) # Home team index
-at = unlist(sapply(1:ng, function(g) which(teams == data$Away[g]))) # Away team index
+## Model 1 : No-Pooling Model
 
-np = 10 # Number of games to be predicted i.e. test sample length
-ngd = ng - np # Number of games used to train i.e. train sample length.
+### Model Description and Stan 
 
+The first model is the *no pooling* model where every team gets its own attack and defence parameters (different intercept for each) but none of these parameters are related to each other in any way. The model description and stan code below clarify this further[^1].:
 
-dat <-  list(
-  nt = nt,
-  ng = ngd,
-  ht = ht[1:ngd],
-  at = at[1:ngd],
-  s1 = data$s1[1:ngd],
-  s2 = data$s2[1:ngd],
-  
-  # for predictions
-  np = np,
-  htp = ht[(ngd+1):ng],
-  atp = at[(ngd+1):ng]
-)
+$$
+\begin{align}
+s1 \sim poisson(\theta_1) \\
+s2 \sim poisson(\theta_2) \\
+\theta_1 = exp(home + att[ht]-def[at])\\
+\theta_2 = exp(att[at] - def[ht])
+\end{align}
+$$
 
-```
-
-## Model 1
-
-The first model we will use for our inference is a complete pooling model where every team gets its own attack and defence parameters (different intercept for each) but none of these parameters are related to each other in any way. The stan code for the statistical model is shown below[^1]:
+$s1$ and $s2$ are home and away scores respectively for a given match, which are assumed to be Poisson processes with their respective $\theta$s. Scores are dependent on whether the team plays at home, and the attack and defense strengths of the home team ($ht$) and the away team($at$).
 
 [^1]: This model is influenced from the hierarchical model presented in stan's official YouTube channel. ([Link to the video.](https://www.youtube.com/watch?v=dNZQrcAjgXQ))
 
@@ -184,7 +158,7 @@ generated quantities {
 
 ### Prior Predictive Simulation
 
-Before we venture into the realms of estimation and prediction, let's see the prior distribution of our parameters. Home Scores ($s1$) and Away Scores ($s2$) depend upon some average rate $\theta_1$ and $\theta_2$ respectively, which again depend upon a team's attack and defence strengths throughout the season. If parameters `home`, `att` and `def` are assumed to be normally distributed, and with $theta$ positivity restriction i.e. exponentiating so that $theta$s remain positive, the home and away scores ranges from $0$ to almost $25$ goals and beyond. This means that with these priors, the model, *a priori* believes that PL teams can score upto 25 goals in a game! (which is absurd). This is almost certainly a very flat prior with the only information being embedded that scores must be positive. However, given that we have 370 matches as sample size to aid in our inference, these priors will do for now. In a separate blog (maybe part 2), I will try to tweak and regularize these priors to see what changes.
+Before we venture into the realms of estimation and prediction, let's see the prior distribution of our parameters. Home Scores ($s1$) and Away Scores ($s2$) depend upon some average rate $\theta_1$ and $\theta_2$ respectively, which again depend upon a team's attack and defence strengths throughout the season. If parameters `home`, `att` and `def` are assumed to be normally distributed, and with $theta$ restricted to being positive with exponentiation, the home and away scores ranges from $0$ to almost $25$ goals and beyond. This means that with these priors, the model, *a priori* believes that PL teams can score upto 25 goals in a game! (which is absurd). This is almost certainly a very flat prior with the only information being embedded that scores must be positive. However, given that we have 370 matches as sample size to aid in our inference, these priors will do for now.
 
 ```{r}
 #| label: Data for Prior Predictive Simulation
@@ -223,9 +197,42 @@ s1_plot_prior
 s2_plot_prior
 ```
 
-## Model 1 Estimates
 
-I compile the stan model with `cmdstanr`, which peruses and estimates the posterior using HMC, and I extract the posterior samples for $att$ and $def$ parameters for 20 teams. The relative $att$ and $def$ estimates for the 20 PL teams in 2023/24 is as follows:
+### Model 1 (No Pooling) Estimation
+
+Data Housekeeping:
+```{r}
+#| label: Generate data list for cmdstanr
+
+teams = unique(data$Home) # Team names
+ng = nrow(data) # number of games
+nt = length(unique(data$Home)) # number of teams
+# Home team index
+ht = unlist(sapply(1:ng, function(g) which(teams == data$Home[g]))) 
+# Away team index
+at = unlist(sapply(1:ng, function(g) which(teams == data$Away[g]))) 
+
+np = 10 # Number of games to be predicted i.e. test sample length
+ngd = ng - np # Number of games used to train i.e. train sample length.
+
+dat <-  list(
+  nt = nt,
+  ng = ngd,
+  ht = ht[1:ngd],
+  at = at[1:ngd],
+  s1 = data$s1[1:ngd],
+  s2 = data$s2[1:ngd],
+  
+  # for predictions
+  np = np,
+  htp = ht[(ngd+1):ng],
+  atp = at[(ngd+1):ng]
+)
+
+```
+
+
+I compile the stan model with `cmdstanr`, which estimates the posterior using HMC, and I extract the posterior samples for $att$ and $def$ parameters for 20 teams. The relative $att$ and $def$ estimates for the 20 PL teams in 2023/24 is as follows:
 
 ```{r}
 #| warning: false
@@ -267,7 +274,7 @@ plot_normal <- d_m1 %>% ggplot(aes(x = att1, y = def1))+
             hjust = -0.15, vjust = 0.15)+
   labs(x = "Attack Strength", y = "Defence Strength",
        title = "PL 2023/24 Teams Att and Def Strengths",
-       subtitle = "Complete Pooling Model (94% credible intervals)")+
+       subtitle = "No-Pooling Model (94% credible intervals)")+
     coord_cartesian(xlim = c(-0.8, 0.8), y = c(-0.8, 0.8))+
   theme_classic()
 
@@ -278,7 +285,9 @@ plot_normal
 
 As shown by the figure, the model does a good job of providing relative attack and defence strength estimates, with power clubs like Arsenal, Manchester City, and Liverpool high on both metrics and relegated clubs Burnley, Luton Town and Sheffield United relatively weaker. It must be pointed out that while the point estimates show relative differences, the credible intervals are wide and as such, to see whether there's a significant difference between any two teams, we must use the posterior contrast. Nonetheless, the model provides a general picture of relative strengths.
 
-Using these relative attack and defence strength parameters, we can then estimate likely scores and win/lose/draw probabilities for the final gameweek. For this purpose, I extract posterior samples for the home and away prediction for the final gameweek $s1p$ and $s2p$. Stan provides the posterior of the prediction for us because of the way the `generated quantities` block is coded. We could have also gotten $s1p$ and $s2p$ outside stan, by using predictions of $\theta_{1p}$ and $\theta_{2p}$.
+## Sidetrack: Preliminary Win/Loss/Draw Predictions
+
+Using our relative attack and defense strength parameters from the model we just estimated, we can estimate win/lose/draw probabilities for each match of the final gameweek. For this purpose, I extract posterior samples for the home and away prediction for the final gameweek $s1p$ and $s2p$. Stan provides the posterior of the prediction for us because of the way the `generated quantities` block is coded. We could have also gotten $s1p$ and $s2p$ outside stan, by using predictions of $\theta_{1p}$ and $\theta_{2p}$.
 
 Then, I write two functions: a) `score_matrix` which returns a matrix of probabilties of each home and away score, and b) `result_prob` which uses this score matrix to return win, loss and draw probabilities.
 
@@ -335,7 +344,21 @@ Can a hierarchical model do better?
 
 ## Model 2: Hierarchical Model
 
-In a hierarchical (or multilevel model), we assume that our attack and defence strength parameters come from population attack and defence strength i.e. instead of assuming that each team's attack and defence strengths being modelled and estimated independent of other teams, the parameters are now draws from a population parameter. For e.g. $att[1..20]$ takes as its prior $att_bar$ as mean and $att_tau$ as standard deviation. The benefit of using such a hierarchical model is that it aids in minimizing over-fitting, whereby, if a team once scored 8 goals in match, the model is more sceptical than the complete-pooling model. Multilevel model shrinks extreme attack and defence strengths towards the mean. This is reasonable given the unpredictability of football results, whereby even in a game between a high-ranked team and a low-ranked team, the saying goes that 'anything can happen in one football game'. Since it is our goal to predict the final gameweek, multilevel model incorporates our own sense of unpredictability and scepticism rather well. Multi-level models also squeeze a lot more information out of the data.
+In a hierarchical (or multilevel model), we assume that our attack and defence strength parameters come from population attack and defence strength i.e. instead of assuming that each team's attack and defence strengths being modelled and estimated independent of other teams, the parameters are now draws from a population parameter. 
+
+
+$$
+\begin{align}
+att_{i} \sim normal(att_{bar}, att_{tau}) \\
+def_{i} \sim normal(def_{bar}, def_{tau}) \\
+i = 1...20
+\end{align}
+$$
+
+
+For e.g. $att[1..20]$ takes as its prior $att_{bar}$ as mean and $att_{tau}$ as standard deviation. 
+
+The benefit of using such a hierarchical model is that it aids in minimizing over-fitting, whereby, if a team once scored 8 goals in  a match, the model is more skeptical than the no-pooling model. Multilevel model shrinks extreme attack and defence strengths towards the mean. This is reasonable given the unpredictability of football results, whereby even in a game between a high-ranked team and a low-ranked team, the saying goes that 'anything can happen in a football match'. Since it is our goal to predict the final gameweek, multilevel model incorporates our own sense of unpredictability and skepticism rather well. Multi-level models also squeeze a lot more information out of the data.
 
 The stan code:
 
@@ -416,6 +439,8 @@ generated quantities {
 }
 ```
 
+
+### Model 2 (Hierarchical Model) Estimation
 Fit the model:
 
 ```{r}
@@ -424,10 +449,10 @@ Fit the model:
 #| label: Load the stored second model.
 m2 <- cmdstan_model("code/multilevel_model.stan")
 m2fit <- m2$sample(data = dat, chains = 8, parallel_chains = 8,
-                refresh = 500)
+          refresh = 500)
 ```
 
-Plot the attack and defence strengths:
+Relative Attack and Defense Strengths:
 
 ```{r}
 #| label: Plot the results from the multi-level model.
@@ -457,7 +482,7 @@ plot_multilevel <- d_m2 %>% ggplot(aes(x = att2, y = def2))+
   
   labs(x = "Attack Strength", y = "Defence Strength",
        title = "PL 2023/24 Teams Att and Def Strengths",
-       subtitle = "Hierarchical Model")+
+       subtitle = "Hierarchical Model (94% Credible Intervals)")+
   coord_cartesian(xlim = c(-0.8, 0.8), y = c(-0.8, 0.8))+
   theme_classic()
 
@@ -467,9 +492,9 @@ plot_multilevel
 
 ```
 
-The figure plots the relative attack and defence strengths of teams in the Premier League using a hierarchical model. While we are going to see a comparison between complete pooling estimates and hierarchical model estimates, we can identity. one major difference in that the estimates are much more bunched together. Let's see what this model predicts in terms of result probabilities.
+The figure plots the relative attack and defence strengths of teams in the Premier League using a hierarchical model. While we are going to see a comparison between no-pooling estimates and hierarchical model estimates, we can identityone major difference right from tha bat which is that the estimates from the hierarchical model are much more bunched together. Let's see what this model predicts in terms of result probabilities.
 
-Predictions:
+### Model 2 (Hierarchical Model) Preliminary Predictions.
 
 ```{r}
 #| label: Multilevel Model Predictions
@@ -485,8 +510,7 @@ cbind(data %>% tail(n = 10), pred2) %>% as_tibble()
 While the hit-rate for the hierarchical model is the same as the complete pooling model (8 out 10 correct), we see that hierarchical model predictions are much more conservative. For example, while the normal model gave $82\%$ chance that Manchester City win their last home game, the multilevel model predicts it at $77\%$.
 
 ## Comparison
-
-The figure shows the most important difference between a complete-pooling and hierarchical model, that the hierarchical model is sceptical of relatively extreme estimates and tend to shrink towards the mean. As is shown by the figure, the red points are much closer to $\mu_att$ and $\mu_def$ than their black (complete pooling counterparts).
+How do these two models differ, both in terms of their estimate of features but also in terms of their predictions?
 
 ```{r}
 #| label: Comparison Plot
@@ -512,14 +536,11 @@ tibble(
   labs(title = "Comparison between complete pooling and multilevel model")+
   theme_classic()
 
-
-
-
 ```
 
-## Prediction Comparison:
+The figure neatly shows the most important difference between a no-pooling and hierarchical model in our context :  hierarchical model is skeptical of extreme estimates and tends to shrink features towards the mean. As is shown by the figure, the red points are much closer to $\mu_att$ and $\mu_def$ than their black (complete pooling counterparts).
 
-While the hit-rates for correct predictions were the same, a point to be noted is that the hierarchical model had Crystal Palace on much higher likelihood of win $34.7\%$ than the normal model $32\%$. In the second part of this blog, we will look at and compare the out-of-sample deviance between the two models, especially if the sample size is small.
+### Comparison in Preliminary Predictions:
 
 ```{r}
 #| label: Comparison Table.
@@ -528,10 +549,15 @@ cbind(data %>% tail(n = 10),
       pred2) %>% as_tibble()
 ```
 
-It is clear from the joint distribution of attack and defense parameters that in both the complete-pooling and the hierarchical model that these features are covary i.e. the plot above shows teams with better attack also have better defences. This leads us to the consideration of another model, where we allow try and estimate the madgnitude of such covariance and whether this added information aids us in better predictions.
+While the hit-rates for correct predictions were the same, a point to be noted is that the hierarchical model had Crystal Palace on much higher likelihood of win $34.7\%$ than the normal model $32\%$. In the second part of this blog, we will look at and compare the out-of-sample deviance between the two models, especially if the sample size is small.
 
-# Correlated Features Model
-The third model that we are going to consider is a correlated features model, whereby a team's attack and defense strengths are correlated; the rationale is that teams who are good at attacking may also be good at defending (possible reasons being a.: attacking teams's higher possession may mean that the opposition team don't have enough of the ball to attack or b. financial discrepancies mean that teams higher up the table hire both better attackers and defenders and in general, the goal of football is to score goal on the one end and not concede on the other so the correlation between attack and defense is baked into the game)
+It is clear from the joint distribution of attack and defense parameters that in both the no-pooling and the hierarchical model that these features are covary i.e. the plot above shows teams with better attack also have better defences. This leads us to consider another model where we allow these features to covary and estimate the madgnitude of such covariance; we can then gauge whether this added information aids us in better predictions.
+
+## Model 3: Correlated Features 
+
+### Model Description and Stan Code
+
+The third model that we are going to consider is a correlated features model, whereby a team's attack and defense strengths are correlated; the rationale is that teams who are good at attacking may also be good at defending (possible reasons being a.: attacking teams's higher possession may mean that the opposition team don't have enough of the ball to attack or b. financial discrepancies mean that teams higher up the table hire both better attackers and defenders). In general, the goal of football is to score goal on the one end and not concede on the other so the covariance between attack and defense is baked into the game.
 
 Given this correlated rationale, the statistical model looks something like this:
 
@@ -568,22 +594,22 @@ Now, let's move onto the Stan code:
 #| eval: false
 
 data {
-    int<lower=0> N;
-    int<lower=0> Nt;
-    int<lower=0> Np;
-    array[N] int<lower=0> s1;
-    array[N] int<lower=0> s2;
-    array[N] int<lower=0> ht;
-    array[N] int<lower=0> at;
+    int<lower=0> ng;
+    int<lower=0> nt;
+    int<lower=0> np;
+    array[ng] int<lower=0> s1;
+    array[ng] int<lower=0> s2;
+    array[ng] int<lower=0> ht;
+    array[ng] int<lower=0> at;
 
     //predictions
-    array[Np] int<lower=0> htp; // home team index for prediction
-    array[Np] int<lower=0> atp; //away team index for prediction
+    array[np] int<lower=0> htp; // home team index for prediction
+    array[np] int<lower=0> atp; //away team index for prediction
 }
 parameters{
     real home;
-    vector[Nt] att;
-    vector[Nt] def;
+    vector[nt] att;
+    vector[nt] def;
 
     // for correlated features.
     corr_matrix[2] Rho;
@@ -592,8 +618,8 @@ parameters{
     real def_bar;
 }
 transformed parameters {
-   vector[N] theta_1;
-   vector[N] theta_2;
+   vector[ng] theta_1;
+   vector[ng] theta_2;
 
    theta_1 = exp(home + att[ht] - def[at]);
    theta_2 = exp(att[at] - def[ht]);
@@ -609,7 +635,7 @@ model{
     vector[2] MU;
     array[20] vector[2] YY;
     MU = [att_bar, def_bar]';
-    for (j in 1:Nt) YY[j] = [att[j], def[j]]';
+    for (j in 1:nt) YY[j] = [att[j], def[j]]';
     YY ~ multi_normal(MU, quad_form_diag(Rho, sigma_team));
     }
 
@@ -618,11 +644,11 @@ model{
 }
 
 generated quantities {
-  vector[Np] theta1p; // home team predicted score
-  vector[Np] theta2p; // away team predicted score.
-  array[Np] int s1p; // score prediction for home using theta1p.
-  array[Np] int s2p; // score prediction for away using theta2p.
-  vector[N] log_lik;
+  vector[np] theta1p; // home team predicted score
+  vector[np] theta2p; // away team predicted score.
+  array[np] int s1p; // score prediction for home using theta1p.
+  array[np] int s2p; // score prediction for away using theta2p.
+  vector[ng] log_lik;
   
   theta1p = exp(home + att[htp] - def[atp]);
   theta2p = exp(att[atp] - def[htp]);
@@ -631,28 +657,14 @@ generated quantities {
   s2p = poisson_rng(theta2p);
 
    
-  for (i in 1:N){
+  for (i in 1:ng){
     log_lik[i] = poisson_lpmf(s1[i] | theta_1[i]) + poisson_lpmf(s2[i] | theta_2[i]);
    }
    
 }
 ```
-Estimating the correlation paramter Rho:
+### Model 3 (Correlated Features) Estimation
 
-```{r}
-dat_corr <-  list(
-  Nt = nt,
-  N = ngd,
-  Np = np,
-  ht = ht[1:ngd],
-  at = at[1:ngd],
-  s1 = data$s1[1:ngd],
-  s2 = data$s2[1:ngd],
-  htp = ht[(ngd+1) : ng],
-  atp = at[(ngd+1) : ng]
-)
-
-```
 ```{r}
 #| warning: false
 #| message: false
@@ -660,13 +672,11 @@ dat_corr <-  list(
 #| label: cmdstan m_corr model
 
 m_corr <- cmdstan_model("code/correlated_features.stan")
-m_corr_fit <- m_corr$sample(data = dat_corr, chains = 4, parallel_chains = 4,
+m_corr_fit <- m_corr$sample(data = dat, chains = 4, parallel_chains = 4,
 refresh = 500)
 
 ```
 
-
-Plot the attack and defense parameter picture:
 
 ```{r}
 #| label: plot the correlated features.
@@ -682,7 +692,6 @@ d_corr <- tibble(
   def_uc = apply(m_corr_ad[21:40], 2, function(x) quantile(x, probs = 0.97)),
   teams = teams
 )
-
 
 plot_corr <- d_corr %>% ggplot(aes(x = att, y = def))+
   geom_point(shape = 1, size = 3)+
@@ -702,6 +711,8 @@ plot_corr <- d_corr %>% ggplot(aes(x = att, y = def))+
 plot_corr
 ```
 
+We see a clear positive correlation between attack and defense features with teams tha attack better than average also defending better than average. The picture looks similar to the ones before, but that is to be expected because additions in model estimation and performance are incremental. Nonetheless, the correlated features model provides us with the added estimation of one of our parameter of interest : $\rho$ the correlation parameter.
+
 ```{r}
 #| label: Plot the Rho.
 mean_rho = round(mean(m_corr_ad$Rho.1.2.), 3)
@@ -720,8 +731,9 @@ tibble(
   theme_bw()
 ```
 
+The comparison between the prior and posterior shows that our third model did learn that attack and defense features are correlated and provided a nice little estimation of the degree of covariance. 
 
-## Comparison of features: Hierarchical model and Correlated Features Model.
+## Grand Comparison: All three models.
 
 
 ```{r}
@@ -732,36 +744,7 @@ sigma <- matrix(c(mean(m_corr_ad$sigma_team.1.), mean(cov), mean(cov), mean(m_co
 d.grid <- expand.grid(att = seq(-0.8, 0.8, length.out = 100), 
   def = seq(-.8, .8, length.out = 100))
 d.contour <- cbind(d.grid, p =dmvnorm(d.grid, m, sigma))
-
-tibble(
-  att = c(d_corr$att, d_m2$att2),
-  def = c(d_corr$def, d_m2$def2),
-  Model = factor(rep(c("Covarying","Multilevel"), each = 20)),
-  team = factor(rep(seq(1, 20), 2))
-) %>% ggplot(aes(x = att, y = def))+
-  geom_point(aes(color = Model), size = 3)+
-  scale_color_manual(
-    values = c(
-      "Covarying" = "purple",
-      "Multilevel" = "red"
-    )
-  )+
-  geom_line(aes(group = team), linewidth = 0.6)+
-  #geom_vline(xintercept = mean(m2ad$att_bar),
-             # linetype = 2, alpha = 0.5)+
-  #geom_hline(yintercept = mean(m2ad$def_bar), linetype = 2, alpha = 0.5)+
-  #annotate("text", -0.5, -0.05, label = expression(mu[def]))+
-  #annotate("text", 0.15, 0.75, label = expression(mu[att]))+
-  labs(title = "Comparison between multilevel model and correlated features model")+
-  geom_contour_filled(data = d.contour,aes(x = att, y = def, z = p,
-  alpha = 0.5, color = "white"), bins = 8, show.legend = FALSE)+
-  scale_fill_brewer(palette = "Reds")+
-  theme_bw()
-
 ```
-
-## All three models comparison.
-
 
 ```{r}
 tibble(
@@ -770,7 +753,7 @@ tibble(
   Model = factor(rep(c("Covarying","Multilevel", "No Pooling"), each = 20)),
   team = factor(rep(seq(1, 20), 3))
 ) %>% ggplot(aes(x = att, y = def))+
-  geom_point(aes(color = Model), size = 3)+
+  geom_point(aes(color = Model), size = 2)+
   scale_color_manual(
     values = c(
       "Covarying" = "purple",
@@ -784,7 +767,7 @@ tibble(
   #geom_hline(yintercept = mean(m2ad$def_bar), linetype = 2, alpha = 0.5)+
   #annotate("text", -0.5, -0.05, label = expression(mu[def]))+
   #annotate("text", 0.15, 0.75, label = expression(mu[att]))+
-  labs(title = "Comparison between multilevel model and correlated features model")+
+  labs(title = "Comparison between multilevel model and correlated features model", subtitle = "Ellipses generated from the mean vectorand covariance matrix estimates.")+
   geom_contour_filled(data = d.contour,aes(x = att, y = def, z = p,
   alpha = 0.5, color = "white"), bins = 8, show.legend = FALSE)+
   scale_fill_brewer(palette = "Reds")+
@@ -793,3 +776,6 @@ tibble(
 ```
 
 
+Estimates from the correlated-features model squeeze themseleves into a covarying relationship while estimates from the hierarchical model either squeeze horizontally (going towards $\mu_{att}$) or squeeze vertically $\mu_{def}$. In all of this humdrum, the no-pooling are chill; bound to nothing and nobody they go where the data leads them to. 
+
+The preliminary prediction for the third model is not presented here because I want to write another blog whereby I try and use three models to compare the gameweek predictions for the ongoing Premier League 2025/26. I will also compare all of these three models out-of-sample deviance with different sample sizes to see which one fares better with little data. 

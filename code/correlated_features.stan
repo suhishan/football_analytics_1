@@ -1,20 +1,20 @@
 data {
-    int<lower=0> N;
-    int<lower=0> Nt;
-    int<lower=0> Np;
-    array[N] int<lower=0> s1;
-    array[N] int<lower=0> s2;
-    array[N] int<lower=0> ht;
-    array[N] int<lower=0> at;
+    int<lower=0> ng;
+    int<lower=0> nt;
+    int<lower=0> np;
+    array[ng] int<lower=0> s1;
+    array[ng] int<lower=0> s2;
+    array[ng] int<lower=0> ht;
+    array[ng] int<lower=0> at;
 
     //predictions
-    array[Np] int<lower=0> htp; // home team index for prediction
-    array[Np] int<lower=0> atp; //away team index for prediction
+    array[np] int<lower=0> htp; // home team index for prediction
+    array[np] int<lower=0> atp; //away team index for prediction
 }
 parameters{
     real home;
-    vector[Nt] att;
-    vector[Nt] def;
+    vector[nt] att;
+    vector[nt] def;
 
     // for correlated features.
     corr_matrix[2] Rho;
@@ -23,8 +23,8 @@ parameters{
     real def_bar;
 }
 transformed parameters {
-   vector[N] theta_1;
-   vector[N] theta_2;
+   vector[ng] theta_1;
+   vector[ng] theta_2;
 
    theta_1 = exp(home + att[ht] - def[at]);
    theta_2 = exp(att[at] - def[ht]);
@@ -40,7 +40,7 @@ model{
     vector[2] MU;
     array[20] vector[2] YY;
     MU = [att_bar, def_bar]';
-    for (j in 1:Nt) YY[j] = [att[j], def[j]]';
+    for (j in 1:nt) YY[j] = [att[j], def[j]]';
     YY ~ multi_normal(MU, quad_form_diag(Rho, sigma_team));
     }
 
@@ -49,11 +49,11 @@ model{
 }
 
 generated quantities {
-  vector[Np] theta1p; // home team predicted score
-  vector[Np] theta2p; // away team predicted score.
-  array[Np] int s1p; // score prediction for home using theta1p.
-  array[Np] int s2p; // score prediction for away using theta2p.
-  vector[N] log_lik;
+  vector[np] theta1p; // home team predicted score
+  vector[np] theta2p; // away team predicted score.
+  array[np] int s1p; // score prediction for home using theta1p.
+  array[np] int s2p; // score prediction for away using theta2p.
+  vector[ng] log_lik;
   
   theta1p = exp(home + att[htp] - def[atp]);
   theta2p = exp(att[atp] - def[htp]);
@@ -62,7 +62,7 @@ generated quantities {
   s2p = poisson_rng(theta2p);
 
    
-   for (i in 1:N){
+   for (i in 1:ng){
     log_lik[i] = poisson_lpmf(s1[i] | theta_1[i]) + poisson_lpmf(s2[i] | theta_2[i]);
    }
    

@@ -1,0 +1,206 @@
+---
+title: "Model Comparison in terms of Out-of-sample deviance and predictions"
+author: "Suhishan Bhandari"
+date: "January 29, 2025"
+format:
+  html: 
+    code-fold: false
+    code-tools: true
+    html-math-method: mathml
+toc: TRUE
+execute:
+  message: false
+  warning: false
+---
+
+
+# Introduction:
+
+
+# Out-of-sample deviance
+
+## Change in out-of-sample deviance by sample size and model.
+
+```{r}
+#| include:false
+#| label: Data and model running and storage.
+
+packages <- c("tidyverse","cmdstanr","bayesplot","loo","posterior", "qs","bivpois")
+lapply(packages, library, character.only = TRUE)
+
+#--- Load the data and make it usable ---#
+
+data <-  read.csv("data/premfull23_24.csv")
+
+data <- data |> dplyr::select(HomeTeam, HomeGoals, AwayGoals, AwayTeam) |> dplyr::rename(
+    Home = HomeTeam,
+    s1 = HomeGoals,
+    s2 = AwayGoals,
+    Away = AwayTeam
+  )
+
+# Recode team names.
+lookup <- c(
+     "Brighton and Hove Albion" = "Brighton",
+     "Manchester Utd" = "Manchester United",
+     "Newcastle Utd" = "Newcastle United",
+     "Nott'ham Forest" = "Nottingham Forest",
+     "Sheffield Utd" = "Sheffield United",
+     "Tottenham Hotspur" = "Tottenham",
+     "West Ham United" = "West Ham",
+     "Wolverhampton Wanderers" = "Wolves"
+)
+
+data = data |> mutate(
+  Home = recode(Home, !!!lookup),
+  Away = recode(Away, !!!lookup)
+)
+
+
+#--- Model fit (complete pooling) ---#
+
+teams = unique(data$Home) # Team names
+ng = nrow(data) # number of games
+nt = length(unique(data$Home)) # number of teams
+ht = unlist(sapply(1:ng, function(g) which(teams == data$Home[g]))) # Home team index
+at = unlist(sapply(1:ng, function(g) which(teams == data$Away[g]))) # Away team index
+
+np = 10 # Number of games to be predicted i.e. test sample length
+ngd = ng - np # Number of games used to train i.e. train sample length.
+
+```
+
+
+```{r}
+#| label: Showing data and compiling all three models.
+dat <-  list(
+  nt = nt,
+  ng = ngd,
+  ht = ht[1:ngd],
+  at = at[1:ngd],
+  s1 = data$s1[1:ngd],
+  s2 = data$s2[1:ngd],
+  
+  # for predictions
+  np = np,
+  htp = ht[(ngd+1):ng],
+  atp = at[(ngd+1):ng]
+)
+
+#--- Compile and Sample the model ---#
+m1 <- cmdstan_model("code/normal_model.stan")
+
+m1fit <- m1$sample(
+  data = dat, chains = 8, parallel_chains = 8, refresh = 500
+)
+
+# --- Compile and sample the hierarchical model --- #
+
+m2 <- cmdstan_model("code/multilevel_model.stan")
+m2fit <- m2$sample(data = dat, chains = 8, parallel_chains = 8, 
+refresh = 500)
+
+# --- Compile and sample from the correlated features model --- #
+m_corr <- cmdstan_model("code/correlated_features.stan")
+
+m_corr_fit <- m_corr$sample(data = dat, chains = 4, parallel_chains = 4, refresh = 500 )
+
+
+```
+
+
+
+```{r}
+Ns <- c(3, 5, 10, 20, 37) * 10 # Sample sizes i.e. gameweeks
+loo_1 <- loo(m1fit$draws("log_lik"))
+loo_2 <- loo(m2fit$draws("log_lik"))
+loo_corr <- loo(m_corr_fit$draws("log_lik"))
+
+loo_compare(loo_1, loo_2, loo_corr)
+-4.5 + c(-1, 1) * 2.6 * 2.9
+-2.1 + c(-1, 1) * 2.6 * 1.7
+ ```
+
+
+ ```{r}
+output_loo <- function(N, np) {
+    dat <- list(
+            nt = 20,
+            ng = N,
+            ht = ht[1:N],
+            at = at[1:N],
+            s1 = data$s1[1:N],
+            s2 = data$s2[1:N],
+  
+            # for predictions
+            np = np,
+            htp = ht[(N+1):(N+np)],
+            atp = at[(N+1):(N+np)]
+)
+
+    models <- list(m1, m2, m_corr)
+    fits <- lapply(models, function(m) {
+        m$sample(data = dat, chains = 4, parallel_chains = 4, 
+        refresh = 0)
+    })
+
+    loos <- lapply(fits, function(x) loo(x$draws("log_lik")))
+
+    return(loo_compare(loos[[1]], loos[[2]], loos[[3]]))
+}
+ ```
+
+
+
+ ```{r}
+ #| eval: false
+ 
+ loo_comparison_output <- list()
+ loo_comparison_output <- lapply(Ns, function(x) output_loo(x, 10))
+ ```
+
+
+
+ ```{r}
+saveRDS(loo_comparison_output, file = "data/loo_comparison_out.RDS")
+ ```
+
+
+```{r}
+# Read the comparison list from the RDS file.
+loo_comparison <- readRDS("data/loo_comparison_out.RDS")
+names(loo_comparison) <- paste0("N", Ns)
+```
+
+## Plot the differences out-of-sample deviance.
+
+
+```{r}
+
+a <- lapply(
+  loo_comparison,
+  function(x) {
+    bind_rows(
+      tibble(mean_diff = x[2], se_diff = x[5], model = "Multilevel"),
+      tibble(mean_diff = x[3], se_diff = x[6], model = "No Pooling")
+    )
+  }
+)
+
+d.plot <- bind_rows(a)
+d.plot |> mutate(
+  lc = mean_diff + (-1) * 2.575 * se_diff,
+  uc = mean_diff + (1) * 2.575 * se_diff,
+  N = factor(rep(Ns, 2)),
+  Model = factor(model)
+) |> ggplot(aes(x = N, y = mean_diff, color = Model)) +
+    geom_point(position = position_dodge(width = 0.4))+
+    geom_errorbar(aes(ymin = lc, ymax = uc), width = 0.2,
+      position = position_dodge(width = 0.4)) +
+    geom_hline(yintercept = 0, linetype = 2)+
+    scale_color_manual(
+      values = c("Multilevel" = "red", "No Pooling" = "black")
+    )+
+    theme_bw()+
+    theme(panel.grid = element_blank())
+```

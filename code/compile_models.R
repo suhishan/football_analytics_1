@@ -345,4 +345,8 @@ subtitle = "L3 is the covariance parameter in a bivariate poisson distribution")
 
 
 
+d.plot |> pivot_longer(cols = ends_with("_se_diff"), ,names_to = "model",
+     values_to = "se_diff", names_pattern = "(.*)_se_diff")
+
+
 
