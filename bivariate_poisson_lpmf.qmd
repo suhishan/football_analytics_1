@@ -133,7 +133,7 @@ $$
 \end{align}
 $$
 
-The expression $\frac{S_i}{S_{i-1}}$ factors out the need for the computation of factorials.  Then, if we take the log of the third expression:
+$S_i$ divided by $S_{i-1}$ factors out the need for the computation of factorials.  Then, if we take the log of the third expression:
 
 $$
 log(S_i) = log(S_{i - 1}) + log(x -i + 1) + log (y -i + 1) -log(i) + log(\frac{\theta_3}{\theta_1 \theta_2})
