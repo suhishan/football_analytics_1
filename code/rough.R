@@ -130,7 +130,6 @@ tic("Model 3")
 log_lik_3 <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf_3)
 toc()
 
-      
 
 log_lik <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf_3)
 cbind(log_lik, l)[which(log_lik == max(log_lik)),]

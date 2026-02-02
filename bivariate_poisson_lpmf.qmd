@@ -1,0 +1,223 @@
+---
+title: "Comparison of function calls for computing bivariate poisson likelihood in R (and Stan)"
+author: "Suhishan Bhandari"
+date: "February 2, 2025"
+format:
+  html: 
+    code-fold: false
+    code-tools: true
+toc: TRUE
+execute:
+  message: false
+  warning: false
+---
+
+
+
+```{r}
+#| include: false
+library(bivpois)
+library(tictoc)
+library(tidyverse)
+set.seed(42)
+```
+
+# Introduction
+
+While writing a blog-post on predicting football match outcomes, I came across bivariate Poisson distribution (BP from now on). The reasoning for using such a distribution is that it allows one to model the covariance between goals scored in a game (unlike the standard independence assumption of the univariate Poisson). However, Stan does not have a default bivariate poisson likelihood function. Even in R, I could only find  a handful of packages that provides quantile density estimates for a BP e.g. `bivpois`. This blog is an outline for all the different custom R functions I wrote to calculate BP density and therefore compute log-likelihood. I also compare these functions in terms of their runtime, and see which function can be transported best to Stan for better numerical efficiency.
+
+
+### Function 1: Brute force 
+
+For information on the derivation and various ways to write the BP, see [Stack Exchange Post](https://stats.stackexchange.com/questions/108705/deriving-the-bivariate-poisson-distribution)
+
+The following is the generally use and presented representation of BP probability mass function.
+$$
+F_{(\theta_1, \theta_2, \theta_3)}(x, y) = 
+exp(-(\theta_1 + \theta_2 + \theta_3)) 
+\frac{\theta_1^x}{x!}  \frac{\theta_2^y}{y!} 
+\sum^{min(x, y)}_{i = 0}i!{x \choose i}{y \choose i}
+(\frac{\theta_3}{\theta_1 \theta_2})^i
+$$
+
+For log-likelihoods we want to be in the log-space, so the following code returns log-probability estimate for a pair of $(x,y)$ and parameters $lambda_{i} \hspace{0.5em} i = 1..3$, where $lambda_3$ is the covariance parameter.
+
+```{r}
+bivar_poisson_lpmf <- function(x, y, lambda) {
+  l_1  <- lambda[1] ;l_2 <- lambda[2]; l_3 <- lambda[3]
+  mn <- min(x, y)
+  con <- -l_1 - l_2 - l_3 + (x * log(l_1)) + (y * log(l_2)) - lfactorial(x) - lfactorial(y) 
+
+  f <- numeric(length(mn) + 1)
+  for (k in 0:mn) {
+    f[k+1] <- choose(x, k)  * choose(y, k) * factorial(k) * (l_3/ (l_1 * l_2)) ^ k
+  }
+
+  f <- log(sum(f))
+  a <- con + f
+
+  return (a)
+}
+bivar_poisson_lpmf(1, 2, c(1, 2, 1))
+```
+
+
+## Function 2: Brute force using underlying independent poisson distributions
+A different way to write pmf for a BP distribution is to decompose it into independent poisson distributions. For example, the following is a way to write a bivariate Poisson as multiplicative sum of independent Poisson distributions. 
+
+$$
+F_{(\theta_1, \theta_2, \theta_3)}(x, y) = 
+\sum^{min(x, y)}_{i = 0} (e^{-\theta_3}\frac{\theta_3^i}{i!})
+(e^{-\theta_1}\frac{\theta_1^{x-i}}{(x-i)!})
+(e^{-\theta_2}\frac{\theta_2^{y-i}}{(y-i)!})
+$$
+
+The corresponding R code then is:
+```{r}
+# A different way to write the same thing. (A cleaner and simpler way)
+
+bivar_poisson_lpmf_2 <- function(x,y, lambda) {
+  l_1  <- lambda[1] ;l_2 <- lambda[2]; l_3 <- lambda[3]
+  mn  <- min(x, y)
+  f <- numeric(length(mn) + 1)
+
+  for (k in 0:mn) {
+    f[k + 1] <- dpois(k, l_3) * dpois(x-k, l_1) * dpois(y-k, l_2)
+  }
+  a <- log(sum(f))
+  return (a)
+}
+
+bivar_poisson_lpmf_2(1, 2, c(1, 2, 1))
+```
+
+## Function 3: Optimized way through iteration and numerically stable for Stan.
+This specification is taken from the [Link](https://groups.google.com/g/stan-users/c/SUcp-ktkXn4). Because log-likelihood functions generally have to iterate through massive amounts of data, it is important that the function is as efficient as possible. The method outlined in that blog and the corresponding R and Stan code here may help us in this endeavour.
+
+This third function relies on recursion. First, we have our original pmf as follows:
+
+$$
+\begin{equation}
+F_{(\theta_1, \theta_2, \theta_3)}(x, y) = 
+\exp(-(\theta_1 + \theta_2 + \theta_3))
+\sum^{min(x, y)}_{i = 0} \frac{\theta_3^i}{i!}
+\frac{\theta_1^{x-i}}{(x-i)!}
+\frac{\theta_2^{y-i}}{(y-i)!}
+\end{equation}
+$$
+
+Let's focus on the expression inside the sum because that is the most computationally expensive where we have to go through every x and y. 
+
+$$
+\begin{equation}
+\begin{aligned}
+S_i =  \frac{\theta_3^i}{i!}
+\frac{\theta_1^{x-i}}{(x-i)!}
+\frac{\theta_2^{y-i}}{(y-i)!}
+\\
+S_{i-1} = \frac{\theta_3^{i-1}}{{i-1}!}
+\frac{\theta_1^{x-i + 1}}{(x-i + 1)!}
+\frac{\theta_2^{y-i + 1}}{(y-i + 1)!} \\
+
+\frac{S_i}{S_{i-1}} = \frac{\theta_3}{\theta_1 \theta_2}
+\frac{(x-i + 1) (y - i + 1)}{i}\\
+\end{aligned}
+\end{equation}
+$$
+
+If $S_i$ is assigned as the expression inside the sum, then correspondingly $S_{i-1}$ is the same expression for $i-1$. Using the fact that:
+
+$$
+\begin{align}
+\frac{(n)!}{(n-1)!} = n \\
+\frac{(x-i+1)!}{(x-i)!} = (x-i+1)
+\end{align}
+$$
+
+The expression $\frac{S_i}{S_{i-1}}$ factors out the need for the computation of factorials.  Then, if we take the log of the third expression:
+
+$$
+log(S_i) = log(S_{i - 1}) + log(x -i + 1) + log (y -i + 1) -log(i) + log(\frac{\theta_3}{\theta_1 \theta_2})
+$$
+
+This is a much elegant way for us to compute BP log-likelihood. However note that compared to the previous two functions, this function uses $log(\theta_i)$ i.e. the rate parameter for the Poisson distribution is input in the log scale. While this is not the complete story, I urge the readers to figure out other parts of this formula using the logic presented above, the google groups discussion and the original formula. (One of the main reasons why I wrote this blog is that I couldn't understand the reasoning behind the google groups code)
+
+
+```{r}
+bivar_poisson_lpmf_3 <- function(x, y, lambda) {
+    l_1 <- log(lambda[1]); l_2 <- log(lambda[2]); l_3 <- log(lambda[3]);
+    mn <- min(x, y)
+
+    f <- numeric()
+    # when l_3 is 0
+    f[1] <- dpois(x, exp(l_1), log = TRUE) + dpois(y, exp(l_2), log = TRUE) -
+        exp(l_3) # log(exp(-exp(l_3)))
+    if (mn > 0) {
+        cons <- -l_1 - l_2 + l_3
+        for (i in 1:mn) {
+            f[i+1] <- f[i] + log(x-i+1) + log(y-i+1) + cons - log(i)
+        }
+    }
+    a <- log(sum(exp(f)))
+    return(a)
+}
+
+bivar_poisson_lpmf_3(1, 2, c(1, 2, 1))
+```
+
+## Run Time Comparison.
+
+Now let's check the runtime to calculate 
+
+```{r}
+# generate data from a bivariate poisson distribution with parameters 1, 2, 1
+d <- data.frame(rbp(100, lambda = c(1, 2, 1))) 
+colnames(d) <- c("x", "y")
+lt <- tibble(l_1 = seq(0.1, 4, by = .1)) |> 
+  expand_grid(l_2 = seq(0.1, 4, .1)) |> 
+  expand_grid(l_3 = seq(0.1, 4, .1))
+
+l <- list(
+  l_1 = lt$l_1, l_2 = lt$l_2, l_3 = lt$l_3
+)
+a <- list(x = d$x, y = d$y) #data as list
+lik_calc <- function(data, l_1, l_2, l_3, func) {
+  a <- sum(pmap_dbl(data, func, lambda = c(l_1, l_2, l_3)))
+  return(a)
+}
+```
+
+The function `lik_calc` calculates the log-likelihood for a given data set and a given set of parameters for any function of our liking. However, we want to traverse through the entire parameter space and calculate log-lik for each combination of parameters. We will then compute the time it takes to do so for each of our three function. `library(tictoc)` is a nice tool that allows us to measure this.
+
+```{r}
+#| eval: false
+tic("Model 1")
+log_lik <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf)
+toc()
+
+tic("Model 2")
+log_lik_2 <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf_2)
+toc()
+
+tic("Model 3")
+log_lik_3 <- pmap_dbl(l, lik_calc, data = a, func = bivar_poisson_lpmf_3)
+toc()
+
+```
+
+Given that running this everytime I render the quarto takes forever, here's the screenshot for when I ran the above snippet once.
+
+![Model Comparison](/bivariate_poisson_lpmf_files/model_comparison.png)
+
+### Did the models even work?
+
+
+```{r}
+#| eval: false
+lls <- cbind(log_lik, log_lik_2, log_lik_3)
+apply(lls, 2, function(x) {
+  lt[which.max(x),]
+})
+```
+
+![Log Likelihoods](/bivariate_poisson_lpmf_files/log_liks.png)
