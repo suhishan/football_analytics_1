@@ -6,7 +6,6 @@ format:
   html: 
     code-fold: false
     code-tools: true
-    html-math-method: mathml
 toc: TRUE
 execute:
   message: false
@@ -110,7 +109,7 @@ F_{(\theta_1, \theta_2, \theta_3)}(x, y) =
 \end{equation}
 $$
 
-
+{% endraw %}
 Let's focus on the expression inside the sum because that is the most computationally expensive where we have to go through every x and y. 
 
 $$
