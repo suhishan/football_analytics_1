@@ -6,13 +6,12 @@ format:
   html: 
     code-fold: false
     code-tools: true
+    html-math-method: mathml
 toc: TRUE
 execute:
   message: false
   warning: false
 ---
-
-
 
 ```{r}
 #| include: false
@@ -40,7 +39,7 @@ exp(-(\theta_1 + \theta_2 + \theta_3))
 (\frac{\theta_3}{\theta_1 \theta_2})^i
 $$
 
-For log-likelihoods we want to be in the log-space, so the following code returns log-probability estimate for a pair of $(x,y)$ and parameters $lambda_{i} \hspace{0.5em} i = 1..3$, where $lambda_3$ is the covariance parameter.
+For log-likelihoods we want to be in the log-space, so the following code returns log-probability estimate for a pair of $(x,y)$ and parameters $lambda_{i}$ for $i = 1..3$, where $lambda_3$ is the covariance parameter.
 
 ```{r}
 bivar_poisson_lpmf <- function(x, y, lambda) {
