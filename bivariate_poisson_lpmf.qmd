@@ -11,7 +11,10 @@ toc: TRUE
 execute:
   message: false
   warning: false
+
 ---
+
+
 
 ```{r}
 #| include: false
@@ -95,7 +98,9 @@ This specification is taken from the [Link](https://groups.google.com/g/stan-use
 
 This third function relies on recursion. First, we have our original pmf as follows:
 
+{% raw %}
 $$
+
 \begin{equation}
 F_{(\theta_1, \theta_2, \theta_3)}(x, y) = 
 \exp(-(\theta_1 + \theta_2 + \theta_3))
@@ -104,6 +109,7 @@ F_{(\theta_1, \theta_2, \theta_3)}(x, y) =
 \frac{\theta_2^{y-i}}{(y-i)!}
 \end{equation}
 $$
+
 
 Let's focus on the expression inside the sum because that is the most computationally expensive where we have to go through every x and y. 
 
@@ -220,3 +226,5 @@ apply(lls, 2, function(x) {
 ```
 
 ![Log Likelihoods](/bivariate_poisson_lpmf_files/log_liks.png)
+
+
